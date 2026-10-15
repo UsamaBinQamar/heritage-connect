@@ -70,6 +70,13 @@ What happens when someone leaves halfway (from the code):
 - New device, through Apply: they type their contact details again with the same email, and the link brings them back to the same application.
 - New device, through any later step or "Welcome back": they are sent to `/login`, whose link lands on `/matchmaker` (staff only), so they never reach their form.
 
+## 7. Staff side: who, how they review, how they decide
+- **Who:** "staff" is the admin. One access level: Bernard and every matchmaker he adds see and do the same things. Nobody is staff until added.
+- **Adding someone:** invite their email under Supabase Authentication → Users, then run `select public.grant_staff_access('their@email.com');` in the SQL editor. It returns `ok`, or `no_auth_user` if the invite step was missed.
+- **Reviewing:** staff sign in at `/login` with an email link and land on `/matchmaker`: every submitted application, newest first, with drafts left out. Filters: status and gender. Opening one shows the full application and the private photos through short-lived links.
+- **Deciding:** three buttons on the application page: Accept, Waitlist, Decline (`set_application_status`). Drafts cannot be decided. A decision can be changed later. The applicant is not emailed.
+- **Against the Milestone 1 scope:** done are the list, details and photos, the decision, and the single staff level. Still to build: staff sign-in with a one-time code (now an email link), staff editing of details and photos, and the full filter set (now only status and gender).
+
 ## Open items
 
 **Milestone 1 work still to build**
@@ -83,12 +90,13 @@ What happens when someone leaves halfway (from the code):
 - Signing in from "Welcome back" always lands on `/matchmaker`; applicants should go to their next unfinished section and staff to the list.
 - An accepted, waitlisted or declined applicant who comes back sees "Review and submit" again; the thank-you page only shows for `submitted`. Submitting again does not change the status.
 - Nothing locks an application once submitted: the steps still open and autosave. Decide with Bernard whether answers can change before review.
+- Applicants are not told about a decision. Decide with Bernard whether accept, waitlist or decline should send an email.
 
 **Setup**
 - Add `SUPABASE_SERVICE_ROLE_KEY` to Vercel (Production and Preview), then redeploy.
 - In Supabase, Authentication → URL Configuration, add `https://heritage-connect-ten.vercel.app/**` to Redirect URLs, or email links fall back to the Site URL.
 - Create staff accounts with `grant_staff_access`.
-- Set up custom SMTP before real users: Supabase's built-in email only sends to the project team and is rate-limited.
+- Set up custom SMTP before real users: Supabase's built-in email only sends to the project team and is rate-limited. Until then neither Bernard nor applicants receive sign-in emails on the live site.
 - Contact form messages are saved but there is no page to read them since the admin enquiries page was removed; decide whether Milestone 1 needs one.
 - `package-lock.json` appeared next to `bun.lock`; Lovable uses bun, so keep only one lockfile in the repo.
 
