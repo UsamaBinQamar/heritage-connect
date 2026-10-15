@@ -3,7 +3,7 @@
 What changed while cutting the original MotherlandMatch Lovable project down to Milestone 1, why, how it was checked, and what is still open. Scope and working rules are in [CLAUDE.md](../CLAUDE.md).
 
 ## Where things are
-- This folder (`heritage-connect/`) is a fresh git repo: remote `UsamaBinQamar/heritage-connect`, no commits yet.
+- This folder (`heritage-connect/`) is its own git repo: remote `UsamaBinQamar/heritage-connect`, branch `main`. Vercel deploys `main`; the production address is https://heritage-connect-ten.vercel.app.
 - The parent folder's `.git` (`heritage-connect-copy/.git`) still holds the original Lovable history (about 400 commits), branch `milestone-1-cleanup` and tag `backup/before-m1-cleanup`. It shows every file as deleted because the files were moved in here; keep it if that history matters.
 - Supabase project: `snlapaoqeiduciclzykj`. The old Lovable Cloud project was `ibftndvhbsrctustdgbe`.
 
@@ -59,6 +59,17 @@ Applies to all seven steps (contact, identity, life, relationship, your match, p
 - Code: new `src/components/apply/field.ts`; changes in `ApplyChrome.tsx`, `ChoiceGroup.tsx`, `MultiSelect.tsx` and the seven `src/routes/apply.*.tsx` files.
 - Checked: type check, build, lint (no new errors) and a scan for duplicate ids. Not yet tried in a browser, because the dev server stopped when the project moved into this folder.
 
+## 6. Testing after the Vercel deploy
+Not yet run end to end in a browser: the Chrome extension was not connected. What was checked:
+- **Vercel:** every public page and every apply step returns 200; unknown paths return 404. The project has the six public Supabase variables but not `SUPABASE_SERVICE_ROLE_KEY`, so the contact step ("send me a link") and attaching the draft after the email link both fail on the live site until it is added.
+- **"We could not save your details" on Life (localhost):** the database is not the cause. `supabase/tests/save-replay.mjs` replays the Identity and Life saves as a signed-in applicant on PGlite and every write passes, so the failure came from the request (an expired session or a dev-server reload). If it comes back, the dev-server terminal shows the real reason on a line starting `[life] facts save failed` or `Unauthorized`.
+- **Applying again with the same email:** still one application per email (unique index), the verified record is not overwritten, and the email link brings the person back. All sections complete with status `submitted` shows the thank-you page.
+
+What happens when someone leaves halfway (from the code):
+- Same browser: they are still signed in, and `/apply` sends them to the first unfinished section.
+- New device, through Apply: they type their contact details again with the same email, and the link brings them back to the same application.
+- New device, through any later step or "Welcome back": they are sent to `/login`, whose link lands on `/matchmaker` (staff only), so they never reach their form.
+
 ## Open items
 
 **Milestone 1 work still to build**
@@ -68,8 +79,14 @@ Applies to all seven steps (contact, identity, life, relationship, your match, p
 4. The full filter set.
 5. Spam protection on the form.
 
+**Found in testing** (item 1 above may replace the sign-in parts)
+- Signing in from "Welcome back" always lands on `/matchmaker`; applicants should go to their next unfinished section and staff to the list.
+- An accepted, waitlisted or declined applicant who comes back sees "Review and submit" again; the thank-you page only shows for `submitted`. Submitting again does not change the status.
+- Nothing locks an application once submitted: the steps still open and autosave. Decide with Bernard whether answers can change before review.
+
 **Setup**
-- Add `SUPABASE_SERVICE_ROLE_KEY` to the hosting environment.
+- Add `SUPABASE_SERVICE_ROLE_KEY` to Vercel (Production and Preview), then redeploy.
+- In Supabase, Authentication → URL Configuration, add `https://heritage-connect-ten.vercel.app/**` to Redirect URLs, or email links fall back to the Site URL.
 - Create staff accounts with `grant_staff_access`.
 - Set up custom SMTP before real users: Supabase's built-in email only sends to the project team and is rate-limited.
 - Contact form messages are saved but there is no page to read them since the admin enquiries page was removed; decide whether Milestone 1 needs one.
@@ -87,4 +104,5 @@ npm run dev                                         # dev server on port 8080
 supabase link --project-ref snlapaoqeiduciclzykj    # once per machine
 supabase db push                                    # apply new migrations
 supabase migration list --linked                    # what is applied where
+cd supabase/tests && npm install && npm test        # replay the saves on PGlite
 ```
