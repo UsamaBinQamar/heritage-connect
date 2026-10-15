@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+Disallow: /application
+Disallow: /application/
+Disallow: /matchmaker
+Disallow: /matchmaker/
+Disallow: /admin
+Disallow: /admin/
+Disallow: /apply/identity
+Disallow: /apply/life
+Disallow: /apply/relationship
+Disallow: /apply/match
+Disallow: /apply/photos
+Disallow: /apply/consent
+Disallow: /login
+Disallow: /launch
+Disallow: /api/
+
+Sitemap: https://motherlandmatch.com/sitemap.xml

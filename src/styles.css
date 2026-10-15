@@ -1,0 +1,202 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * MotherlandMatch design system.
+ *
+ * Locked palette (Prompt 2), expressed in oklch:
+ *   Burgundy      #651C32  primary actions, key marks
+ *   Dark Burgundy #3B101F  cinematic headers, rich backgrounds
+ *   Warm Ivory    #FAF7F2  default page background
+ *   Soft Sand     #EFE7DC  alternate sections, hairline washes
+ *   Charcoal      #24201F  primary text
+ *   Muted Taupe   #756A64  secondary text only
+ *   Champagne Gold#B89A67  rare accent, never a fill
+ *   White         #FFFFFF  cards, form surfaces
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+
+  --font-display: "Cormorant Garamond", Georgia, serif;
+  --font-sans: "Figtree", system-ui, -apple-system, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+
+  --color-ivory: var(--ivory);
+  --color-sand: var(--sand);
+  --color-sand-deep: var(--sand-deep);
+  --color-charcoal: var(--charcoal);
+  --color-taupe: var(--taupe);
+  --color-burgundy: var(--burgundy);
+  --color-wine: var(--wine);
+  --color-gold: var(--gold);
+  --color-olive: var(--olive);
+  --color-amber-warm: var(--amber-warm);
+  --color-wine-red: var(--wine-red);
+  --color-slate-info: var(--slate-info);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0.625rem;
+
+  /* Global contrast law: ivory paper, charcoal ink, taupe only for secondary text. */
+  --ivory: #faf7f2;
+  --sand: #efe7dc;
+  --sand-deep: #d8cbbb;
+  --charcoal: #24201f;
+  --taupe: #756a64;
+  --burgundy: #651c32;
+  --wine: #3b101f;
+  --gold: #b89a67;
+  --olive: oklch(0.5194 0.0523 136.43);
+  --amber-warm: oklch(0.6226 0.1143 73.41);
+  --wine-red: oklch(0.424 0.1438 21.8);
+  --slate-info: oklch(0.4595 0.0303 244.93);
+
+  --background: var(--ivory);
+  --foreground: var(--charcoal);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--charcoal);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--charcoal);
+  --primary: var(--burgundy);
+  --primary-foreground: var(--ivory);
+  --secondary: var(--sand);
+  --secondary-foreground: var(--charcoal);
+  --muted: var(--sand);
+  --muted-foreground: var(--taupe);
+  --accent: var(--sand);
+  --accent-foreground: var(--charcoal);
+  --destructive: var(--wine-red);
+  --destructive-foreground: var(--ivory);
+  --border: var(--sand-deep);
+  --input: var(--sand-deep);
+  --ring: var(--burgundy);
+
+  --chart-1: var(--burgundy);
+  --chart-2: var(--olive);
+  --chart-3: var(--slate-info);
+  --chart-4: var(--amber-warm);
+  --chart-5: var(--taupe);
+  --sidebar: var(--ivory);
+  --sidebar-foreground: var(--charcoal);
+  --sidebar-primary: var(--burgundy);
+  --sidebar-primary-foreground: var(--ivory);
+  --sidebar-accent: var(--sand);
+  --sidebar-accent-foreground: var(--charcoal);
+  --sidebar-border: var(--sand-deep);
+  --sidebar-ring: var(--burgundy);
+}
+
+.dark {
+  --background: var(--wine);
+  --foreground: var(--ivory);
+  --card: oklch(0.29 0.0696 1.95);
+  --card-foreground: var(--ivory);
+  --popover: oklch(0.29 0.0696 1.95);
+  --popover-foreground: var(--ivory);
+  --primary: var(--ivory);
+  --primary-foreground: var(--wine);
+  --secondary: oklch(0.32 0.0696 1.95);
+  --secondary-foreground: var(--ivory);
+  --muted: oklch(0.32 0.0696 1.95);
+  --muted-foreground: oklch(0.78 0.012 60);
+  --accent: oklch(0.32 0.0696 1.95);
+  --accent-foreground: var(--ivory);
+  --destructive: var(--wine-red);
+  --destructive-foreground: var(--ivory);
+  --border: oklch(1 0 0 / 14%);
+  --input: oklch(1 0 0 / 18%);
+  --ring: var(--gold);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  input,
+  select,
+  textarea {
+    color: var(--color-charcoal);
+    border-color: var(--color-input);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-taupe);
+    opacity: 1;
+  }
+
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  button:focus-visible,
+  a:focus-visible {
+    outline-color: var(--color-ring);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    color: var(--color-charcoal);
+  }
+}
