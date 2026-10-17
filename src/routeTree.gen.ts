@@ -8,23 +8,25 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root.tsx'
+import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AboutRouteImport } from './routes/about.tsx'
-import { Route as ContactRouteImport } from './routes/contact.tsx'
-import { Route as HowItWorksRouteImport } from './routes/how-it-works.tsx'
-import { Route as LoginRouteImport } from './routes/login.tsx'
-import { Route as MembershipRouteImport } from './routes/membership.tsx'
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml.ts'
-import { Route as ApplyIndexRouteImport } from './routes/apply.index.tsx'
-import { Route as ApplyConsentRouteImport } from './routes/apply.consent.tsx'
-import { Route as ApplyIdentityRouteImport } from './routes/apply.identity.tsx'
-import { Route as ApplyLifeRouteImport } from './routes/apply.life.tsx'
-import { Route as ApplyMatchRouteImport } from './routes/apply.match.tsx'
-import { Route as ApplyPhotosRouteImport } from './routes/apply.photos.tsx'
-import { Route as ApplyRelationshipRouteImport } from './routes/apply.relationship.tsx'
-import { Route as MatchmakerIndexRouteImport } from './routes/matchmaker.index.tsx'
-import { Route as MatchmakerApplicationsIdRouteImport } from './routes/matchmaker.applications.$id.tsx'
+import { Route as AboutRouteImport } from './routes/about'
+import { Route as ContactRouteImport } from './routes/contact'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as HowItWorksRouteImport } from './routes/how-it-works'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as MembershipRouteImport } from './routes/membership'
+import { Route as SetPasswordRouteImport } from './routes/set-password'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as ApplyIndexRouteImport } from './routes/apply.index'
+import { Route as ApplyConsentRouteImport } from './routes/apply.consent'
+import { Route as ApplyIdentityRouteImport } from './routes/apply.identity'
+import { Route as ApplyLifeRouteImport } from './routes/apply.life'
+import { Route as ApplyMatchRouteImport } from './routes/apply.match'
+import { Route as ApplyPhotosRouteImport } from './routes/apply.photos'
+import { Route as ApplyRelationshipRouteImport } from './routes/apply.relationship'
+import { Route as MatchmakerIndexRouteImport } from './routes/matchmaker.index'
+import { Route as MatchmakerApplicationsIdRouteImport } from './routes/matchmaker.applications.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -41,6 +43,11 @@ const ContactRoute = ContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HowItWorksRoute = HowItWorksRouteImport.update({
   id: '/how-it-works',
   path: '/how-it-works',
@@ -54,6 +61,11 @@ const LoginRoute = LoginRouteImport.update({
 const MembershipRoute = MembershipRouteImport.update({
   id: '/membership',
   path: '/membership',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetPasswordRoute = SetPasswordRouteImport.update({
+  id: '/set-password',
+  path: '/set-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -112,9 +124,11 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/contact': typeof ContactRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/how-it-works': typeof HowItWorksRoute
   '/login': typeof LoginRoute
   '/membership': typeof MembershipRoute
+  '/set-password': typeof SetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/apply/consent': typeof ApplyConsentRoute
   '/apply/identity': typeof ApplyIdentityRoute
@@ -130,9 +144,11 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/contact': typeof ContactRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/how-it-works': typeof HowItWorksRoute
   '/login': typeof LoginRoute
   '/membership': typeof MembershipRoute
+  '/set-password': typeof SetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/apply/consent': typeof ApplyConsentRoute
   '/apply/identity': typeof ApplyIdentityRoute
@@ -149,9 +165,11 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/contact': typeof ContactRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/how-it-works': typeof HowItWorksRoute
   '/login': typeof LoginRoute
   '/membership': typeof MembershipRoute
+  '/set-password': typeof SetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/apply/consent': typeof ApplyConsentRoute
   '/apply/identity': typeof ApplyIdentityRoute
@@ -169,9 +187,11 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/contact'
+    | '/forgot-password'
     | '/how-it-works'
     | '/login'
     | '/membership'
+    | '/set-password'
     | '/sitemap.xml'
     | '/apply/consent'
     | '/apply/identity'
@@ -187,9 +207,11 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/contact'
+    | '/forgot-password'
     | '/how-it-works'
     | '/login'
     | '/membership'
+    | '/set-password'
     | '/sitemap.xml'
     | '/apply/consent'
     | '/apply/identity'
@@ -205,9 +227,11 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/contact'
+    | '/forgot-password'
     | '/how-it-works'
     | '/login'
     | '/membership'
+    | '/set-password'
     | '/sitemap.xml'
     | '/apply/consent'
     | '/apply/identity'
@@ -224,9 +248,11 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   ContactRoute: typeof ContactRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   HowItWorksRoute: typeof HowItWorksRoute
   LoginRoute: typeof LoginRoute
   MembershipRoute: typeof MembershipRoute
+  SetPasswordRoute: typeof SetPasswordRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApplyConsentRoute: typeof ApplyConsentRoute
   ApplyIdentityRoute: typeof ApplyIdentityRoute
@@ -262,6 +288,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/how-it-works': {
       id: '/how-it-works'
       path: '/how-it-works'
@@ -281,6 +314,13 @@ declare module '@tanstack/react-router' {
       path: '/membership'
       fullPath: '/membership'
       preLoaderRoute: typeof MembershipRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/set-password': {
+      id: '/set-password'
+      path: '/set-password'
+      fullPath: '/set-password'
+      preLoaderRoute: typeof SetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -360,9 +400,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   ContactRoute: ContactRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   HowItWorksRoute: HowItWorksRoute,
   LoginRoute: LoginRoute,
   MembershipRoute: MembershipRoute,
+  SetPasswordRoute: SetPasswordRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApplyConsentRoute: ApplyConsentRoute,
   ApplyIdentityRoute: ApplyIdentityRoute,

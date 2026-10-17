@@ -3,7 +3,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
-import { ApplyMasthead, quietButtonClass } from "@/components/apply/ApplyChrome";
+import { quietButtonClass } from "@/components/apply/ApplyChrome";
+import { StaffMasthead } from "@/components/staff/StaffMasthead";
 import {
   getApplicationFile,
   setApplicationStatus,
@@ -96,7 +97,7 @@ function ApplicationFilePage() {
   if (state === "loading") {
     return (
       <main className="min-h-screen bg-ivory">
-        <ApplyMasthead />
+        <StaffMasthead />
         <p className="mx-auto max-w-[1080px] px-6 py-16 text-[16px] text-taupe">Loading.</p>
       </main>
     );
@@ -105,7 +106,7 @@ function ApplicationFilePage() {
   if (state === "denied" || !file) {
     return (
       <main className="min-h-screen bg-ivory">
-        <ApplyMasthead />
+        <StaffMasthead />
         <div className="mx-auto max-w-[640px] px-6 py-20">
           <h1 className="font-display text-[34px] font-semibold text-charcoal">Not available</h1>
           <p className="mt-4 text-[17px] text-charcoal">This area is for MotherlandMatch staff.</p>
@@ -120,7 +121,7 @@ function ApplicationFilePage() {
 
   return (
     <main className="min-h-screen bg-ivory">
-      <ApplyMasthead />
+      <StaffMasthead />
       <div className="mx-auto max-w-[1080px] px-6 py-12">
         <div className="flex flex-wrap gap-5">
           <Link to="/matchmaker" className="text-[15px] font-medium text-burgundy">

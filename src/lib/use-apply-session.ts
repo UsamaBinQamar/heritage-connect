@@ -9,8 +9,9 @@ import { supabase } from "@/integrations/supabase/client";
  * A missing session on mount is NOT the same as being signed out: the client
  * restores the session asynchronously. So we wait for it (and listen for the
  * restore event) before deciding anything. Only a settled, genuinely absent
- * session sends the person to sign in — nothing on screen is cleared, and no
- * new application is started.
+ * session sends the person back to the start, where their email brings them
+ * back to the same application. Nothing is cleared, and no new application is
+ * started. (Sign in at /login is for staff, who use a password.)
  *
  * Returns the session state so a step can retry a save once it is "ready".
  */
@@ -42,7 +43,7 @@ export function useApplySession(): "loading" | "ready" | "signed-out" {
       }
       if (cancelled || settled) return;
       setState("signed-out");
-      void navigate({ to: "/login", replace: true });
+      void navigate({ to: "/apply", replace: true });
     })();
 
     return () => {

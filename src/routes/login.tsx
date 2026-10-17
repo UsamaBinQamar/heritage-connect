@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -9,21 +9,16 @@ import {
   inputClass,
   primaryButtonClass,
 } from "@/components/apply/ApplyChrome";
+import { authErrorMessage, destinationAfterSignIn } from "@/lib/staff-auth";
 
 export const Route = createFileRoute("/login")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Sign in | MotherlandMatch" },
-      {
-        name: "description",
-        content: "Sign in to continue or check your MotherlandMatch application.",
-      },
-      { property: "og:title", content: "Sign in | MotherlandMatch" },
-      {
-        property: "og:description",
-        content: "Sign in to continue or check your MotherlandMatch application.",
-      },
+      { title: "Staff sign in | MotherlandMatch" },
+      { name: "description", content: "Sign in to the MotherlandMatch staff area." },
+      { property: "og:title", content: "Staff sign in | MotherlandMatch" },
+      { property: "og:description", content: "Sign in to the MotherlandMatch staff area." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "robots", content: "noindex, nofollow" },
@@ -32,46 +27,54 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
-const emailOk = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
+// The domain part is checked strictly so a stray quote or comma is caught here.
+const emailOk = (v: string) => /^[^\s@]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(v.trim());
 
 function LoginPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
-  const [step, setStep] = useState<"email" | "verify">("email");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
-  const [resendIn, setResendIn] = useState(0);
 
+  // Already signed in on this browser: go straight on.
   useEffect(() => {
-    if (resendIn <= 0) return;
-    const timer = setTimeout(() => setResendIn((s) => s - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [resendIn]);
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (cancelled || !data.session) return;
+      const to = await destinationAfterSignIn(data.session.user);
+      if (!cancelled) await navigate({ to, replace: true });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
 
-  const send = async () => {
+  const signIn = async (event: FormEvent) => {
+    event.preventDefault();
     if (!emailOk(email)) {
-      setError("Please enter the email address on your application.");
+      setError("Please check the email address.");
+      return;
+    }
+    if (!password) {
+      setError("Please enter your password.");
       return;
     }
     setBusy(true);
     setError(undefined);
     try {
-      const { error: sendError } = await supabase.auth.signInWithOtp({
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
-        options: {
-          shouldCreateUser: false,
-          emailRedirectTo: `${window.location.origin}/matchmaker`,
-        },
+        password,
       });
-      if (sendError) throw sendError;
-      setStep("verify");
-      setResendIn(45);
-    } catch {
-      setError("We could not send an email to that address. Please check it and try again.");
-    } finally {
+      if (signInError) throw signInError;
+      await navigate({ to: await destinationAfterSignIn(data.user), replace: true });
+    } catch (err) {
+      setError(authErrorMessage(err, "We could not sign you in just now. Please try again."));
       setBusy(false);
     }
   };
-
 
   return (
     <main className="min-h-screen bg-ivory">
@@ -79,63 +82,67 @@ function LoginPage() {
       <div className="mx-auto max-w-[620px] px-6 pt-16 pb-24">
         <Panel>
           <h1 className="font-display text-[40px] leading-[1.05] font-semibold text-charcoal sm:text-[46px]">
-            Welcome back.
+            Staff sign in.
           </h1>
+          <p className="mt-5 text-[19px] leading-[1.6] text-charcoal">
+            Sign in with your email and password.
+          </p>
 
-          {step === "email" ? (
-            <>
-              <p className="mt-5 text-[19px] leading-[1.6] text-charcoal">
-                Enter the email address on your application and we will send you a sign-in email.
-              </p>
-              <div className="mt-10">
-                <FieldShell id="login-email" label="Email">
-                  <input
-                    id="login-email"
-                    type="email"
-                    inputMode="email"
-                    autoComplete="email"
-                    className={inputClass}
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      setError(undefined);
-                    }}
-                  />
-                </FieldShell>
-              </div>
-              {error && <p className="mt-6 text-[15px] font-medium text-wine-red">{error}</p>}
-              <div className="mt-10 border-t border-sand-deep/70 pt-8">
-                <button
-                  type="button"
-                  className={primaryButtonClass}
-                  disabled={busy}
-                  onClick={() => void send()}
-                >
-                  {busy ? "Sending…" : "Send sign-in email"}
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="mt-5 text-[19px] leading-[1.6] text-charcoal">
-                We sent an email to {email.trim().toLowerCase()}. Open it on this device and follow
-                the link to continue.
-              </p>
-              {error && <p className="mt-6 text-[15px] font-medium text-wine-red">{error}</p>}
-              <div className="mt-10 flex flex-col gap-5 border-t border-sand-deep/70 pt-8 sm:flex-row sm:items-center sm:justify-between">
-                <button
-                  type="button"
-                  className="text-[15px] font-medium text-burgundy underline underline-offset-4 disabled:text-taupe disabled:no-underline"
-                  disabled={busy || resendIn > 0}
-                  onClick={() => void send()}
-                >
-                  {resendIn > 0 ? `Send again in ${resendIn}s` : "Send the email again"}
-                </button>
-              </div>
-            </>
-          )}
+          <form className="mt-10 space-y-8" noValidate onSubmit={(e) => void signIn(e)}>
+            <FieldShell id="login-email" label="Email">
+              <input
+                id="login-email"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                className={inputClass}
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setError(undefined);
+                }}
+              />
+            </FieldShell>
+            <FieldShell id="login-password" label="Password">
+              <input
+                id="login-password"
+                type="password"
+                autoComplete="current-password"
+                className={inputClass}
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError(undefined);
+                }}
+              />
+            </FieldShell>
 
+            {error && (
+              <p role="alert" className="text-[15px] font-medium text-wine-red">
+                {error}
+              </p>
+            )}
+
+            <div className="flex flex-col gap-5 border-t border-sand-deep/70 pt-8 sm:flex-row sm:items-center sm:justify-between">
+              <button type="submit" className={primaryButtonClass} disabled={busy}>
+                {busy ? "Signing in…" : "Sign in"}
+              </button>
+              <Link
+                to="/forgot-password"
+                className="text-[15px] font-medium text-burgundy underline underline-offset-4"
+              >
+                Forgot your password?
+              </Link>
+            </div>
+          </form>
         </Panel>
+
+        <p className="mt-8 text-center text-[15px] text-taupe">
+          Applying to MotherlandMatch?{" "}
+          <Link to="/apply" className="font-medium text-burgundy underline underline-offset-4">
+            Continue your application
+          </Link>
+        </p>
       </div>
     </main>
   );

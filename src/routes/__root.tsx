@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { SITE_ORIGIN } from "../lib/seo";
+import { usePasswordRecoveryRedirect } from "../lib/staff-auth";
 
 function NotFoundComponent() {
   return (
@@ -142,6 +143,7 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  usePasswordRecoveryRedirect();
 
   return (
     <QueryClientProvider client={queryClient}>

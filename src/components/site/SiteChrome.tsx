@@ -180,7 +180,7 @@ export function SiteFooter() {
             </li>
             <li>
               <Link to="/login" className="transition-colors hover:text-burgundy">
-                Sign in
+                Staff sign in
               </Link>
             </li>
           </ul>

@@ -3,7 +3,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
-import { ApplyMasthead, quietButtonClass, selectClass } from "@/components/apply/ApplyChrome";
+import { quietButtonClass, selectClass } from "@/components/apply/ApplyChrome";
+import { StaffMasthead } from "@/components/staff/StaffMasthead";
 import { listApplications, type ApplicationRow } from "@/lib/matchmaker.functions";
 
 export const Route = createFileRoute("/matchmaker/")({
@@ -91,7 +92,7 @@ function ApplicationsPage() {
   if (state === "loading") {
     return (
       <main className="min-h-screen bg-ivory">
-        <ApplyMasthead />
+        <StaffMasthead />
         <p className="mx-auto max-w-[1080px] px-6 py-16 text-[16px] text-taupe">Loading.</p>
       </main>
     );
@@ -100,7 +101,7 @@ function ApplicationsPage() {
   if (state === "denied") {
     return (
       <main className="min-h-screen bg-ivory">
-        <ApplyMasthead />
+        <StaffMasthead />
         <div className="mx-auto max-w-[640px] px-6 py-20">
           <h1 className="font-display text-[34px] leading-tight font-semibold text-charcoal">Not available</h1>
           <p className="mt-4 text-[17px] text-charcoal">
@@ -116,7 +117,7 @@ function ApplicationsPage() {
 
   return (
     <main className="min-h-screen bg-ivory">
-      <ApplyMasthead />
+      <StaffMasthead />
       <div className="mx-auto max-w-[1180px] px-6 py-12">
         <h1 className="font-display text-[34px] leading-tight font-semibold text-charcoal">Applications</h1>
         <p className="mt-2 text-[16px] text-charcoal">

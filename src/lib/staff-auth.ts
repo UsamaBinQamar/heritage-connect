@@ -1,0 +1,80 @@
+import { useEffect } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import type { User } from "@supabase/supabase-js";
+
+import { supabase } from "@/integrations/supabase/client";
+
+/**
+ * Staff sign in with email and password. New staff receive a temporary
+ * password, choose their own on first sign-in, and can reset it by email.
+ * Applicants never need a password: their application email brings them back.
+ */
+
+export const MIN_PASSWORD_LENGTH = 8;
+
+/** Set in the user's metadata once they have chosen their own password. */
+export function hasChosenPassword(user: User | null | undefined): boolean {
+  return user?.user_metadata?.["password_set"] === true;
+}
+
+/** Staff go to the dashboard (or to choose a password first); anyone else to their application. */
+export async function destinationAfterSignIn(
+  user: User,
+): Promise<"/matchmaker" | "/set-password" | "/apply"> {
+  const { data: staff, error } = await supabase.rpc("is_staff");
+  if (error || staff !== true) return "/apply";
+  return hasChosenPassword(user) ? "/matchmaker" : "/set-password";
+}
+
+export type PasswordProblem = { field: "password" | "confirm"; message: string };
+
+export function passwordProblem(password: string, confirm: string): PasswordProblem | undefined {
+  if (password.length < MIN_PASSWORD_LENGTH)
+    return { field: "password", message: `Please use at least ${MIN_PASSWORD_LENGTH} characters.` };
+  if (password !== confirm) return { field: "confirm", message: "The two passwords do not match." };
+  return undefined;
+}
+
+type AuthFailure = { code?: string; status?: number };
+
+export function authErrorCode(error: unknown): string | undefined {
+  return ((error ?? {}) as AuthFailure).code;
+}
+
+/** Plain wording for the Supabase Auth errors people can actually hit. */
+export function authErrorMessage(error: unknown, fallback: string): string {
+  const { code, status } = (error ?? {}) as AuthFailure;
+  switch (code) {
+    case "invalid_credentials":
+      return "That email and password do not match.";
+    case "email_not_confirmed":
+      return "This account has not been confirmed yet.";
+    case "same_password":
+      return "That is your current password. Please choose a different one.";
+    case "weak_password":
+      return "That password is too easy to guess. Please choose a longer one.";
+    case "reauthentication_needed":
+      return "For your security, please reset your password by email instead.";
+    case "over_email_send_rate_limit":
+      return "Too many emails have been sent. Please wait a few minutes and try again.";
+  }
+  if (status === 429) return "Too many attempts. Please wait a minute and try again.";
+  return fallback;
+}
+
+/**
+ * A reset link that falls back to the Site URL (because the address was not
+ * on Supabase's redirect list) still signs the person in. Send them on to
+ * choose their password instead of leaving them on the home page.
+ */
+export function usePasswordRecoveryRedirect() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY" && window.location.pathname !== "/set-password") {
+        void navigate({ to: "/set-password" });
+      }
+    });
+    return () => data.subscription.unsubscribe();
+  }, [navigate]);
+}
