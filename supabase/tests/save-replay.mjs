@@ -177,42 +177,65 @@ const [{ count }] = (
 ).rows;
 expectEqual("apply again: still one application for the email", count, 1);
 
-// After submission the applicant can read their application but not change it.
-// Row-level security skips rows it hides, so a blocked UPDATE changes 0 rows.
+// Pending review: the applicant can still change their application.
 await db.query(`UPDATE public.profiles SET application_status = 'submitted' WHERE id = $1`, [
   profileId,
 ]);
 await asApplicant(uid);
+// Row-level security skips rows it hides, so a blocked UPDATE changes 0 rows.
 const changed = async (sql, params) => (await db.query(sql, params)).affectedRows ?? 0;
 expectEqual(
-  "submitted: answers locked",
+  "pending: answers can change",
+  await changed(`UPDATE public.profile_facts SET smoking = 'never' WHERE profile_id = $1`, [
+    profileId,
+  ]),
+  1,
+);
+expectEqual(
+  "pending: contact details can change",
+  await changed(`UPDATE public.profiles SET first_name = 'Test' WHERE id = $1`, [profileId]),
+  1,
+);
+
+// Once decided the applicant can read their application but not change it.
+await asServer();
+await db.query(`UPDATE public.profiles SET application_status = 'accepted' WHERE id = $1`, [
+  profileId,
+]);
+await asApplicant(uid);
+expectEqual(
+  "decided: answers locked",
   await changed(`UPDATE public.profile_facts SET smoking = 'regularly' WHERE profile_id = $1`, [
     profileId,
   ]),
   0,
 );
 expectEqual(
-  "submitted: contact details locked",
+  "decided: contact details locked",
   await changed(`UPDATE public.profiles SET first_name = 'Changed' WHERE id = $1`, [profileId]),
   0,
 );
 await expectError(
-  "submitted: no new consent rows",
+  "decided: no new consent rows",
   `INSERT INTO public.consents (profile_id, consent_key, policy_version, accepted)
    VALUES ($1, 'contact_followup', 'v1', true)`,
   [profileId],
 );
 const readable = await expectOk(
-  "submitted: applicant can still read their answers",
+  "decided: applicant can still read their answers",
   `SELECT smoking FROM public.profile_facts WHERE profile_id = $1`,
   [profileId],
 );
-expectEqual("submitted: answers unchanged", readable[0], { smoking: "never" });
+expectEqual("decided: answers unchanged", readable[0], { smoking: "never" });
 await expectOk(
-  "submitted: sections still recompute",
+  "decided: sections still recompute",
   `SELECT public.recompute_profile_sections($1)`,
   [profileId],
 );
+await asServer();
+await db.query(`UPDATE public.profiles SET application_status = 'submitted' WHERE id = $1`, [
+  profileId,
+]);
 
 // Staff decide with a reason; a waitlisted applicant reopens and resubmits.
 await asServer();

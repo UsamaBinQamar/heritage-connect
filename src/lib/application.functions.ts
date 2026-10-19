@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { ApplicationFile } from "@/lib/matchmaker.functions";
 
 /** The seven application sections, in order, with the route that owns each. */
 export const APPLICATION_SECTIONS = [
@@ -64,4 +65,15 @@ export const getApplicationOverview = createServerFn({ method: "GET" })
       sections,
       resumeSection: resume ? resume.key : null,
     };
+  });
+
+/**
+ * The signed-in applicant's whole application, read-only, for the page they
+ * see once it is submitted. Row-level security limits it to their own.
+ */
+export const getMyApplicationFile = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<ApplicationFile | null> => {
+    const { loadApplicationFile } = await import("@/lib/application-file.server");
+    return loadApplicationFile(context.supabase, { authUserId: context.userId });
   });

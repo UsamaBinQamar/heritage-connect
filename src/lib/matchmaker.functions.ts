@@ -64,68 +64,10 @@ export const getApplicationFile = createServerFn({ method: "GET" })
   .handler(async ({ data, context }): Promise<ApplicationFile> => {
     await requireStaff(context);
 
-    const { data: profile } = await context.supabase
-      .from("profiles")
-      .select(
-        "id, first_name, last_name, email, phone, phone_country, country_of_residence, gender, date_of_birth, application_status, application_submitted_at, last_decision, decision_reason, decided_at, submission_count",
-      )
-      .eq("id", data.profile_id)
-      .is("deleted_at", null)
-      .maybeSingle();
-    if (!profile) throw new Error("That application could not be found.");
-
-    const [{ data: facts }, { data: prefs }, { data: notes }, { data: photoRows }] =
-      await Promise.all([
-        context.supabase
-          .from("profile_facts")
-          .select("*")
-          .eq("profile_id", profile.id)
-          .maybeSingle(),
-        context.supabase
-          .from("profile_preferences")
-          .select(
-            "attribute_key, attribute_value, attribute_value_json, weight, preference_attributes(section)",
-          )
-          .eq("profile_id", profile.id),
-        context.supabase
-          .from("applicant_matchmaking_notes")
-          .select("id, body, created_at")
-          .eq("profile_id", profile.id)
-          .order("created_at"),
-        context.supabase
-          .from("photos")
-          .select("id, storage_path, sort_order")
-          .eq("profile_id", profile.id)
-          .order("sort_order"),
-      ]);
-
-    // Signed links are minted server-side for signed-in staff only.
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const photos: ApplicationFile["photos"] = [];
-    for (const row of (photoRows ?? []) as any[]) {
-      const { data: signed } = await supabaseAdmin.storage
-        .from("member-photos")
-        .createSignedUrl(row.storage_path, 600);
-      photos.push({ id: row.id, url: signed?.signedUrl ?? null, sort_order: row.sort_order });
-    }
-
-    return {
-      profile,
-      facts: (facts as any) ?? null,
-      preferences: ((prefs ?? []) as any[]).map((p) => ({
-        attribute_key: p.attribute_key,
-        value: p.attribute_value,
-        json: p.attribute_value_json,
-        weight: p.weight,
-        section: p.preference_attributes?.section ?? "other",
-      })),
-      notes: ((notes ?? []) as any[]).map((n) => ({
-        id: n.id,
-        body: n.body,
-        created_at: n.created_at,
-      })),
-      photos,
-    };
+    const { loadApplicationFile } = await import("@/lib/application-file.server");
+    const file = await loadApplicationFile(context.supabase, { id: data.profile_id });
+    if (!file) throw new Error("That application could not be found.");
+    return file;
   });
 
 export const DECISIONS = [

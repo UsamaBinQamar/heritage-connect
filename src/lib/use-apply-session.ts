@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 
 import { supabase } from "@/integrations/supabase/client";
+import { isEditableStatus } from "@/lib/account";
 
 /**
  * Application steps read and write under the applicant's own session.
@@ -12,8 +13,9 @@ import { supabase } from "@/integrations/supabase/client";
  * session sends the person to log in, where they can set a password by email
  * if they never chose one. Nothing is cleared, and no new application is started.
  *
- * A submitted application is locked, so every step except the consent page
- * (which shows the receipt) sends the person there.
+ * Once staff accept, waitlist or decline an application it is read-only, so
+ * every step except the consent page (which shows it) sends the person there.
+ * While it is pending review the steps stay open for changes.
  *
  * Returns the session state so a step can retry a save once it is "ready".
  */
@@ -36,7 +38,7 @@ export function useApplySession(): "loading" | "ready" | "signed-out" {
         .eq("auth_user_id", userId)
         .is("deleted_at", null)
         .maybeSingle();
-      if (!cancelled && data && data.application_status !== "draft") {
+      if (!cancelled && data && !isEditableStatus(data.application_status)) {
         void navigate({ to: "/apply/consent", replace: true });
       }
     };

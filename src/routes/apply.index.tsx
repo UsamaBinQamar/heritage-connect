@@ -30,6 +30,7 @@ import {
   selectClass,
 } from "@/components/apply/ApplyChrome";
 import { orderByPage, revealField } from "@/components/apply/field";
+import { isEditableStatus } from "@/lib/account";
 import { publicPageHead } from "@/lib/seo";
 
 const countriesQuery = queryOptions({
@@ -197,8 +198,10 @@ function ContactStage() {
           gender: saved.contact.gender || prev.gender,
         }));
 
-        // Submitted applications are locked; the consent page shows the receipt.
-        if (overview && overview.applicationStatus !== "draft") {
+        // Decided applications are read-only, and a pending one opens on its
+        // summary page unless the person chose to edit a section.
+        const status = overview?.applicationStatus;
+        if (status && (!isEditableStatus(status) || (status === "submitted" && !isEdit))) {
           leaving = true;
           await navigate({ to: "/apply/consent", replace: true });
           return;

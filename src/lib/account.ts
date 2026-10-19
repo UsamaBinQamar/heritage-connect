@@ -12,6 +12,15 @@ import { APPLICATION_SECTIONS } from "@/lib/application.functions";
  *   browser. To come back elsewhere they set one with "Forgot password".
  */
 
+/**
+ * An applicant can change their application while it is a draft or pending
+ * review. Accepted, waitlisted and declined applications are read-only (the
+ * database enforces this; see current_editable_profile_id()).
+ */
+export function isEditableStatus(status: string | null | undefined): boolean {
+  return status === "draft" || status === "submitted";
+}
+
 export type AccountState = "loading" | "signed-out" | "applicant" | "staff";
 
 /** Who is signed in on this browser, kept current as they log in or out. */

@@ -19,6 +19,9 @@ import {
   type ConsentDesk,
 } from "@/lib/consent.functions";
 import { useApplySession } from "@/lib/use-apply-session";
+import { getMyApplicationFile } from "@/lib/application.functions";
+import type { ApplicationFile } from "@/lib/matchmaker.functions";
+import { ApplicationSummary } from "@/components/application/ApplicationSummary";
 import { hasChosenPassword } from "@/lib/account";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -136,6 +139,8 @@ function ConsentStage() {
   const save = useServerFn(setConsent);
   const submit = useServerFn(submitApplication);
   const reopen = useServerFn(reopenApplication);
+  const loadFile = useServerFn(getMyApplicationFile);
+  const [file, setFile] = useState<ApplicationFile | null>(null);
   const [reopening, setReopening] = useState(false);
 
   const [desk, setDesk] = useState<ConsentDesk | null>(null);
@@ -170,6 +175,14 @@ function ConsentStage() {
       setReopening(false);
     }
   };
+
+  // Once submitted, show what was sent, read-only.
+  useEffect(() => {
+    if (!submitted) return;
+    void loadFile()
+      .then(setFile)
+      .catch((err) => console.error(err));
+  }, [submitted, loadFile]);
 
   // Applicants start without a password; offer one so they can check back later.
   useEffect(() => {
@@ -342,6 +355,30 @@ function ConsentStage() {
               </Link>
             </div>
           </Panel>
+
+          <section className="mt-14">
+            <h2 className="font-display text-[32px] leading-tight font-semibold text-charcoal">
+              Your application
+            </h2>
+            <p className="mt-3 text-[16px] leading-[1.6] text-taupe">
+              {status === "submitted"
+                ? "This is what you sent. You can still change it until a matchmaker reviews it."
+                : canResubmit
+                  ? "This is what you sent. To change it, choose Update and resubmit above."
+                  : "This is what you sent. It can no longer be changed."}
+            </p>
+            <div className="mt-8 grid gap-6">
+              {file ? (
+                <ApplicationSummary
+                  file={file}
+                  audience="applicant"
+                  editable={status === "submitted"}
+                />
+              ) : (
+                <p className="text-[16px] text-taupe">Loading your answers.</p>
+              )}
+            </div>
+          </section>
         </div>
       </main>
     );

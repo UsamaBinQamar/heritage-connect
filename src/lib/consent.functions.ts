@@ -106,7 +106,7 @@ export const setConsent = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const profile = await ownProfile(context);
-    if (profile.application_status !== "draft") {
+    if (profile.application_status !== "draft" && profile.application_status !== "submitted") {
       throw new Error("Your application has already been submitted.");
     }
 
