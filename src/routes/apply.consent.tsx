@@ -23,7 +23,7 @@ import { useLiveRefresh } from "@/lib/realtime";
 import { getMyApplicationFile } from "@/lib/application.functions";
 import type { ApplicationFile } from "@/lib/matchmaker.functions";
 import { ApplicationSummary } from "@/components/application/ApplicationSummary";
-import { hasChosenPassword } from "@/lib/account";
+import { hasChosenPassword, refreshAccount } from "@/lib/account";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/apply/consent")({
@@ -167,6 +167,7 @@ function ConsentStage() {
     setError(null);
     try {
       await reopen();
+      refreshAccount();
       await refresh();
       window.scrollTo({ top: 0 });
     } catch (err) {
@@ -181,6 +182,7 @@ function ConsentStage() {
   useLiveRefresh(
     desk?.profileId ? [{ table: "profiles", filter: `id=eq.${desk.profileId}` }] : null,
     () => {
+      refreshAccount();
       void refresh().catch((err) => console.error(err));
       if (submitted) {
         void loadFile()
@@ -257,7 +259,8 @@ function ConsentStage() {
     setError(null);
     try {
       await submit({});
-      setSubmitted(true);
+      refreshAccount();
+      await refresh();
     } catch (err) {
       console.error(err);
       setError("Some parts of your application are still missing.");

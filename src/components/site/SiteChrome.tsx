@@ -45,7 +45,13 @@ function HeaderLogo() {
   );
 }
 
+/**
+ * Every "Apply" button on the site. Hidden for staff and for anyone whose
+ * application is already submitted, as known from their signed-in account.
+ */
 export function ApplyLink({ className, children }: { className: string; children: ReactNode }) {
+  const { canApply } = useAccount();
+  if (!canApply) return null;
   return (
     <Link to="/apply" search={{}} className={className}>
       {children}

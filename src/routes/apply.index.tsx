@@ -111,8 +111,6 @@ const EMPTY: Values = {
   gender: "",
 };
 
-const CONTACT_CACHE_KEY = "mm.apply.contact";
-
 const emailOk = (v: string) => /^[^\s@]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(v.trim());
 
 function e164(phone: string, country: string): string | null {
@@ -158,19 +156,14 @@ function ContactStage() {
   // Only save after the person changes something, not when saved values load in.
   const edited = useRef(false);
 
-  // Signed in on this browser: restore what is saved and send the person to the
-  // first section they have not finished. Never a second application.
+  // Signed in: load what is saved on the account and send the person to the
+  // first section they have not finished. Nothing is kept in browser storage;
+  // before Continue, the details exist only on screen.
   useEffect(() => {
     let cancelled = false;
     let leaving = false;
     void (async () => {
       try {
-        const cached = sessionStorage.getItem(CONTACT_CACHE_KEY);
-        if (cached && !cancelled) {
-          const parsed = JSON.parse(cached) as Partial<Values>;
-          setValues((prev) => ({ ...prev, ...parsed }));
-        }
-
         const { data } = await supabase.auth.getSession();
         const session = data.session;
         if (!session || cancelled) return;
@@ -216,7 +209,6 @@ function ContactStage() {
           return;
         }
         if (resume.key === "contact") return;
-        sessionStorage.removeItem(CONTACT_CACHE_KEY);
         leaving = true;
         await navigate({ to: resume.to, replace: true });
       } catch (error) {
@@ -229,15 +221,6 @@ function ContactStage() {
       cancelled = true;
     };
   }, [attachDraft, loadSaved, loadOverview, isEdit, navigate]);
-
-  // Keep what is on screen across a refresh and a browser Back.
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(CONTACT_CACHE_KEY, JSON.stringify(values));
-    } catch {
-      /* storage unavailable */
-    }
-  }, [values]);
 
   const callingCodes = useMemo(() => {
     const supported = new Set(getCountries() as string[]);
@@ -334,7 +317,6 @@ function ContactStage() {
         });
         if (error) throw error;
       }
-      sessionStorage.removeItem(CONTACT_CACHE_KEY);
       await navigate({ to: "/apply/identity" });
     } catch (error) {
       console.error(error);

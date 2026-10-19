@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import type { User } from "@supabase/supabase-js";
 
@@ -23,39 +23,87 @@ export function isEditableStatus(status: string | null | undefined): boolean {
 
 export type AccountState = "loading" | "signed-out" | "applicant" | "staff";
 
+type Account = { state: AccountState; applicationStatus: string | null };
+
+// One shared answer per page for "who is signed in, and where is their
+// application", read from the session and the database (never from browser
+// storage). Every header button reads it instead of querying on its own.
+const LOADING: Account = { state: "loading", applicationStatus: null };
+let account: Account = LOADING;
+const listeners = new Set<() => void>();
+let started = false;
+let generation = 0;
+
+function publish(next: Account) {
+  account = next;
+  listeners.forEach((listener) => listener());
+}
+
+async function loadAccount(userId: string | null) {
+  const mine = ++generation;
+  if (!userId) {
+    publish({ state: "signed-out", applicationStatus: null });
+    return;
+  }
+  const [staff, profile] = await Promise.all([
+    supabase.rpc("is_staff"),
+    supabase
+      .from("profiles")
+      .select("application_status")
+      .eq("auth_user_id", userId)
+      .is("deleted_at", null)
+      .maybeSingle(),
+  ]);
+  if (mine !== generation) return;
+  publish({
+    state: staff.data === true ? "staff" : "applicant",
+    applicationStatus: profile.data?.application_status ?? null,
+  });
+}
+
+/** Re-read the account, e.g. after submitting or reopening an application. */
+export function refreshAccount() {
+  void supabase.auth.getSession().then(({ data }) => loadAccount(data.session?.user.id ?? null));
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  if (!started) {
+    started = true;
+    refreshAccount();
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+        void loadAccount(session?.user.id ?? null);
+      }
+    });
+  }
+  return () => listeners.delete(listener);
+}
+
 /** Who is signed in on this browser, kept current as they log in or out. */
 export function useAccount() {
   const navigate = useNavigate();
-  const [state, setState] = useState<AccountState>("loading");
+  const current = useSyncExternalStore(
+    subscribe,
+    () => account,
+    () => LOADING,
+  );
 
-  useEffect(() => {
-    let cancelled = false;
-    const check = async (signedIn: boolean) => {
-      if (!signedIn) {
-        if (!cancelled) setState("signed-out");
-        return;
-      }
-      const { data: staff } = await supabase.rpc("is_staff");
-      if (!cancelled) setState(staff === true ? "staff" : "applicant");
-    };
-    void supabase.auth.getSession().then(({ data }) => check(Boolean(data.session)));
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT") void check(Boolean(session));
-    });
-    return () => {
-      cancelled = true;
-      data.subscription.unsubscribe();
-    };
-  }, []);
+  // Apply is offered to visitors and to applicants who have not submitted yet;
+  // never to staff, and never while we do not know yet.
+  const canApply =
+    current.state === "signed-out" ||
+    (current.state === "applicant" &&
+      (current.applicationStatus === null || current.applicationStatus === "draft"));
 
   const signOut = useCallback(async () => {
-    const wasStaff = state === "staff";
+    const wasStaff = account.state === "staff";
     // Local scope: sign out this browser only, not the person's other devices.
     await supabase.auth.signOut({ scope: "local" });
     await navigate({ to: wasStaff ? "/login" : "/", replace: true });
-  }, [navigate, state]);
+  }, [navigate]);
 
-  return { state, signOut };
+  return { state: current.state, applicationStatus: current.applicationStatus, canApply, signOut };
 }
 
 export const MIN_PASSWORD_LENGTH = 8;
