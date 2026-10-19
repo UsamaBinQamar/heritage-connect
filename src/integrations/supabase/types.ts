@@ -596,6 +596,7 @@ export type Database = {
           decision_reason: string | null
           last_decision: Database["public"]["Enums"]["application_status"] | null
           submission_count: number
+          reopened_fingerprint: string | null
           auth_user_id: string | null
           country_of_residence: string | null
           created_at: string
@@ -620,6 +621,7 @@ export type Database = {
           decision_reason?: string | null
           last_decision?: Database["public"]["Enums"]["application_status"] | null
           submission_count?: number
+          reopened_fingerprint?: string | null
           auth_user_id?: string | null
           country_of_residence?: string | null
           created_at?: string
@@ -644,6 +646,7 @@ export type Database = {
           decision_reason?: string | null
           last_decision?: Database["public"]["Enums"]["application_status"] | null
           submission_count?: number
+          reopened_fingerprint?: string | null
           auth_user_id?: string | null
           country_of_residence?: string | null
           created_at?: string
@@ -764,7 +767,7 @@ export type Database = {
         Args: { _profile_id: string }
         Returns: number
       }
-      reopen_application: { Args: never; Returns: string }
+      reopen_application: { Args: { _fingerprint?: string }; Returns: string }
       set_application_status: {
         Args: {
           _profile_id: string

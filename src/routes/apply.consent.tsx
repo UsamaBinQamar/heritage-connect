@@ -282,6 +282,8 @@ function ConsentStage() {
   const earlierSectionsComplete = SECTION_REVIEW.filter((s) => s.key !== "consent").every(
     (s) => sections[s.key]?.complete,
   );
+  // Reopened after a decision: sending the same answers again isn't allowed.
+  const unchanged = Boolean(desk?.unchangedSinceReopen);
   const missingConsents = CONSENT_ROWS.filter((row) => row.required && !consents[row.key]);
   const summary = attempted
     ? [
@@ -512,6 +514,13 @@ function ConsentStage() {
 
             {error && <p className="mt-8 text-[15px] font-medium text-wine-red">{error}</p>}
 
+            {unchanged && (
+              <p className="mt-8 text-[16px] leading-[1.6] text-charcoal">
+                Nothing has changed since you last sent your application. Update at least one
+                section above, then you can send it again.
+              </p>
+            )}
+
             <div className="mt-10 flex flex-col gap-4 border-t border-sand-deep/70 pt-8 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-[15px] text-taupe">
                 Your progress is saved automatically.
@@ -521,7 +530,7 @@ function ConsentStage() {
                 <button
                   type="button"
                   className={primaryButtonClass}
-                  disabled={!loaded || busy}
+                  disabled={!loaded || busy || unchanged}
                   onClick={() => void onSubmit()}
                 >
                   Submit application

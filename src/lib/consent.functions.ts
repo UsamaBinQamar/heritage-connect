@@ -27,12 +27,16 @@ export type ConsentDesk = {
   decisionReason: string | null;
   sections: Record<string, { percent: number; complete: boolean }>;
   consents: Record<string, boolean>;
+  /** Reopened after a decision and not changed since: it cannot be sent again yet. */
+  unchangedSinceReopen: boolean;
 };
 
 async function ownProfile(context: { supabase: any; userId: string }) {
   const { data } = await context.supabase
     .from("profiles")
-    .select("id, application_status, application_submitted_at, decision_reason")
+    .select(
+      "id, application_status, application_submitted_at, decision_reason, reopened_fingerprint",
+    )
     .eq("auth_user_id", context.userId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -42,7 +46,25 @@ async function ownProfile(context: { supabase: any; userId: string }) {
     application_status: string;
     application_submitted_at: string | null;
     decision_reason: string | null;
+    reopened_fingerprint: string | null;
   };
+}
+
+/** The applicant's current answers, hashed (see applicationFingerprint). */
+async function currentFingerprint(context: Parameters<typeof ownProfile>[0]) {
+  const { loadApplicationFile, applicationFingerprint } =
+    await import("@/lib/application-file.server");
+  const file = await loadApplicationFile(context.supabase, { authUserId: context.userId });
+  return file ? applicationFingerprint(file) : null;
+}
+
+/** True while a reopened application still matches what was sent before. */
+async function unchangedSinceReopen(
+  context: Parameters<typeof ownProfile>[0],
+  profile: { application_status: string; reopened_fingerprint: string | null },
+) {
+  if (profile.application_status !== "draft" || !profile.reopened_fingerprint) return false;
+  return (await currentFingerprint(context)) === profile.reopened_fingerprint;
 }
 
 /**
@@ -91,6 +113,7 @@ export const getConsentDesk = createServerFn({ method: "GET" })
       decisionReason: profile.decision_reason,
       sections,
       consents,
+      unchangedSinceReopen: await unchangedSinceReopen(context, profile),
     };
   });
 
@@ -140,6 +163,9 @@ export const submitApplication = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const profile = await ownProfile(context);
+    if (await unchangedSinceReopen(context, profile)) {
+      throw new Error("Change at least one answer before sending your application again.");
+    }
     const { error } = await context.supabase.rpc("submit_application", {
       _profile_id: profile.id,
     });
@@ -157,7 +183,12 @@ export const submitApplication = createServerFn({ method: "POST" })
 export const reopenApplication = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data: outcome, error } = await context.supabase.rpc("reopen_application");
+    // Fingerprint the answers as sent, so submit can tell whether they changed.
+    const fingerprint = await currentFingerprint(context);
+    const { data: outcome, error } = await context.supabase.rpc(
+      "reopen_application",
+      fingerprint ? { _fingerprint: fingerprint } : {},
+    );
     if (error || outcome !== "ok") {
       if (error) console.error("[consent] reopen failed", error.message);
       throw new Error("We could not reopen your application just now. Please try again.");

@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -67,4 +69,46 @@ export async function loadApplicationFile(
     notes: (notes ?? []).map((n) => ({ id: n.id, body: n.body, created_at: n.created_at })),
     photos,
   };
+}
+
+/** Status, decision and bookkeeping columns: they change without the applicant editing. */
+const UNTRACKED = new Set([
+  "id",
+  "profile_id",
+  "created_at",
+  "updated_at",
+  "application_status",
+  "application_submitted_at",
+  "last_decision",
+  "decision_reason",
+  "decided_at",
+  "submission_count",
+]);
+
+function answersOnly(row: Record<string, unknown> | null) {
+  if (!row) return null;
+  return Object.fromEntries(
+    Object.keys(row)
+      .filter((key) => !UNTRACKED.has(key))
+      .sort()
+      .map((key) => [key, row[key]]),
+  );
+}
+
+/**
+ * A hash of the applicant's answers, so a reopened application can tell
+ * whether anything changed since it was sent. Photo links are re-signed on
+ * every load, so photos count by id and order.
+ */
+export function applicationFingerprint(file: ApplicationFile): string {
+  const answers = {
+    profile: answersOnly(file.profile),
+    facts: answersOnly(file.facts),
+    preferences: file.preferences
+      .map((p) => [p.attribute_key, p.value, p.json, p.weight])
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
+    notes: file.notes.map((n) => n.body),
+    photos: file.photos.map((p) => [p.id, p.sort_order]),
+  };
+  return createHash("sha256").update(JSON.stringify(answers)).digest("hex");
 }
