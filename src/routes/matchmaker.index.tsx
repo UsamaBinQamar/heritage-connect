@@ -41,7 +41,7 @@ const GENDER_LABEL: Record<string, string> = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  submitted: "Submitted",
+  submitted: "Pending review",
   accepted: "Accepted",
   waitlisted: "Waitlisted",
   declined: "Declined",
@@ -49,7 +49,11 @@ const STATUS_LABEL: Record<string, string> = {
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
-  return new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  return new Date(value).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function ApplicationsPage() {
@@ -59,8 +63,12 @@ function ApplicationsPage() {
   const [state, setState] = useState<"loading" | "ready" | "denied">("loading");
   const [applications, setApplications] = useState<ApplicationRow[]>([]);
 
-  const [status, setStatus] = useState<"all" | "submitted" | "accepted" | "waitlisted" | "declined">("all");
-  const [gender, setGender] = useState<"all" | "woman" | "man" | "other" | "prefer_not_to_say">("all");
+  const [status, setStatus] = useState<
+    "all" | "submitted" | "accepted" | "waitlisted" | "declined"
+  >("all");
+  const [gender, setGender] = useState<"all" | "woman" | "man" | "other" | "prefer_not_to_say">(
+    "all",
+  );
 
   useEffect(() => {
     void (async () => {
@@ -103,10 +111,10 @@ function ApplicationsPage() {
       <main className="min-h-screen bg-ivory">
         <StaffMasthead />
         <div className="mx-auto max-w-[640px] px-6 py-20">
-          <h1 className="font-display text-[34px] leading-tight font-semibold text-charcoal">Not available</h1>
-          <p className="mt-4 text-[17px] text-charcoal">
-            This area is for MotherlandMatch staff.
-          </p>
+          <h1 className="font-display text-[34px] leading-tight font-semibold text-charcoal">
+            Not available
+          </h1>
+          <p className="mt-4 text-[17px] text-charcoal">This area is for MotherlandMatch staff.</p>
           <Link to="/" className={`${quietButtonClass} mt-8`}>
             Return to the website
           </Link>
@@ -119,7 +127,9 @@ function ApplicationsPage() {
     <main className="min-h-screen bg-ivory">
       <StaffMasthead />
       <div className="mx-auto max-w-[1180px] px-6 py-12">
-        <h1 className="font-display text-[34px] leading-tight font-semibold text-charcoal">Applications</h1>
+        <h1 className="font-display text-[34px] leading-tight font-semibold text-charcoal">
+          Applications
+        </h1>
         <p className="mt-2 text-[16px] text-charcoal">
           Submitted applications, newest first. {rows.length} shown.
         </p>
@@ -133,7 +143,7 @@ function ApplicationsPage() {
               className={`${selectClass} mt-1.5 h-[46px] w-[200px] text-[15px]`}
             >
               <option value="all">All</option>
-              <option value="submitted">Submitted</option>
+              <option value="submitted">Pending review</option>
               <option value="accepted">Accepted</option>
               <option value="waitlisted">Waitlisted</option>
               <option value="declined">Declined</option>
@@ -177,21 +187,30 @@ function ApplicationsPage() {
                 </tr>
               ) : (
                 rows.map((row) => (
-                  <tr key={row.profile_id} className="border-b border-sand-deep/50 last:border-0 align-middle">
+                  <tr
+                    key={row.profile_id}
+                    className="border-b border-sand-deep/50 last:border-0 align-middle"
+                  >
                     <td className="px-5 py-4 text-[16px] font-medium text-charcoal">
                       {[row.first_name, row.last_name].filter(Boolean).join(" ") || "—"}
                     </td>
                     <td className="px-5 py-4 text-[15px] text-charcoal">
                       {row.gender ? (GENDER_LABEL[row.gender] ?? row.gender) : "—"}
                     </td>
-                    <td className="px-5 py-4 text-[15px] text-charcoal tabular-nums">{ageFrom(row.date_of_birth)}</td>
+                    <td className="px-5 py-4 text-[15px] text-charcoal tabular-nums">
+                      {ageFrom(row.date_of_birth)}
+                    </td>
                     <td className="px-5 py-4 text-[15px] text-charcoal">
-                      {[row.city, row.state_or_region, row.country_of_residence].filter(Boolean).join(", ") || "—"}
+                      {[row.city, row.state_or_region, row.country_of_residence]
+                        .filter(Boolean)
+                        .join(", ") || "—"}
                     </td>
                     <td className="px-5 py-4 text-[15px] text-charcoal">
                       {STATUS_LABEL[row.application_status] ?? row.application_status}
                     </td>
-                    <td className="px-5 py-4 text-[15px] text-charcoal">{formatDate(row.submitted_at)}</td>
+                    <td className="px-5 py-4 text-[15px] text-charcoal">
+                      {formatDate(row.submitted_at)}
+                    </td>
                     <td className="px-5 py-4">
                       <div className="flex justify-end">
                         <Link

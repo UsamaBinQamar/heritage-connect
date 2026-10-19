@@ -14,7 +14,7 @@ export const SECTIONS = [
   { key: "consent", label: "Consent" },
 ] as const;
 
-/** `account={false}` hides Log in / Sign out, for the log-in pages themselves. */
+/** `account={false}` hides Log in / Log out, for the log-in pages themselves. */
 export function ApplyMasthead({ account = true }: { account?: boolean }) {
   return (
     <header className="border-b border-sand-deep/70 bg-ivory">
@@ -50,7 +50,7 @@ function AccountLinks() {
         </Link>
       )}
       <button type="button" onClick={() => void signOut()} className={link}>
-        Sign out
+        Log out
       </button>
     </nav>
   );

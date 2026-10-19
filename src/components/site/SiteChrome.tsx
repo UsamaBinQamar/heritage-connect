@@ -62,37 +62,58 @@ export const ctaQuietLight =
 export const ctaQuietDark =
   "inline-flex h-[56px] items-center justify-center rounded-[10px] border border-sand-deep px-8 text-[16px] font-medium text-charcoal transition-colors duration-300 hover:bg-sand";
 
-/** Log in when signed out; a way back in for applicants and staff when signed in. */
+/**
+ * Log in when signed out. When signed in: a way back in (Dashboard for staff,
+ * My application for applicants) and Log out.
+ */
 function AccountLink({ className, onClick }: { className: string; onClick?: () => void }) {
-  const { state } = useAccount();
+  const { state, signOut } = useAccount();
   const navigate = useNavigate();
   if (state === "loading") return null;
+  const logOut = (
+    <button
+      type="button"
+      className={className}
+      onClick={() => {
+        onClick?.();
+        void signOut();
+      }}
+    >
+      Log out
+    </button>
+  );
   if (state === "staff") {
     return (
-      <Link to="/matchmaker" onClick={onClick} className={className}>
-        Dashboard
-      </Link>
+      <>
+        <Link to="/matchmaker" onClick={onClick} className={className}>
+          Dashboard
+        </Link>
+        {logOut}
+      </>
     );
   }
   if (state === "applicant") {
     return (
-      <Link
-        to="/apply"
-        search={{}}
-        className={className}
-        onClick={(event) => {
-          // Go straight to the right page (next section, or the receipt) instead
-          // of opening the contact step and redirecting from there.
-          event.preventDefault();
-          onClick?.();
-          void supabase.auth.getSession().then(async ({ data }) => {
-            if (!data.session) return navigate({ to: "/login" });
-            return navigate({ to: await destinationAfterSignIn(data.session.user) });
-          });
-        }}
-      >
-        My application
-      </Link>
+      <>
+        <Link
+          to="/apply"
+          search={{}}
+          className={className}
+          onClick={(event) => {
+            // Go straight to the right page (next section, or the receipt) instead
+            // of opening the contact step and redirecting from there.
+            event.preventDefault();
+            onClick?.();
+            void supabase.auth.getSession().then(async ({ data }) => {
+              if (!data.session) return navigate({ to: "/login" });
+              return navigate({ to: await destinationAfterSignIn(data.session.user) });
+            });
+          }}
+        >
+          My application
+        </Link>
+        {logOut}
+      </>
     );
   }
   return (
@@ -158,7 +179,7 @@ export function SiteHeader() {
             ))}
             <AccountLink
               onClick={() => setOpen(false)}
-              className="py-2.5 text-[17px] font-medium text-burgundy"
+              className="py-2.5 text-left text-[17px] font-medium text-burgundy"
             />
             <ApplyLink className="mt-3 inline-flex h-[52px] items-center justify-center rounded-[10px] bg-burgundy px-6 text-[16px] font-semibold text-ivory">
               Apply Now

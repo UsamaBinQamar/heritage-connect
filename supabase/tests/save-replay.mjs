@@ -214,5 +214,75 @@ await expectOk(
   [profileId],
 );
 
+// Staff decide with a reason; a waitlisted applicant reopens and resubmits.
+await asServer();
+const staffUid = "22222222-2222-2222-2222-222222222222";
+await db.exec(`INSERT INTO auth.users VALUES ('${staffUid}', 'staff@example.test')`);
+await db.query(`SELECT public.grant_staff_access('staff@example.test')`);
+const decide = async (status, reason) =>
+  (
+    await db.query(`SELECT public.set_application_status($1, $2, $3) AS r`, [
+      profileId,
+      status,
+      reason,
+    ])
+  ).rows[0].r;
+
+await asApplicant(uid);
+expectEqual("decision: applicants cannot decide", await decide("accepted", null), "not_permitted");
+await asApplicant(staffUid);
+expectEqual(
+  "decision: waitlist needs a reason",
+  await decide("waitlisted", "  "),
+  "reason_required",
+);
+expectEqual(
+  "decision: waitlist with a reason",
+  await decide("waitlisted", "Not yet in your city"),
+  "ok",
+);
+
+await asApplicant(uid);
+const [seen] = await expectOk(
+  "decision: applicant reads status and reason",
+  `SELECT application_status, last_decision, decision_reason FROM public.profiles WHERE id = $1`,
+  [profileId],
+);
+expectEqual("decision: reason shown to applicant", seen, {
+  application_status: "waitlisted",
+  last_decision: "waitlisted",
+  decision_reason: "Not yet in your city",
+});
+await expectError(
+  "decision: applicant cannot write the reason",
+  `UPDATE public.profiles SET decision_reason = 'x' WHERE id = $1`,
+  [profileId],
+);
+expectEqual(
+  "resubmit: waitlisted applicant reopens",
+  (await db.query(`SELECT public.reopen_application() AS r`)).rows[0].r,
+  "ok",
+);
+expectEqual(
+  "resubmit: reopened answers can change again",
+  await changed(`UPDATE public.profile_facts SET smoking = 'sometimes' WHERE profile_id = $1`, [
+    profileId,
+  ]),
+  1,
+);
+
+await asServer();
+await db.query(`UPDATE public.profiles SET application_status = 'submitted' WHERE id = $1`, [
+  profileId,
+]);
+await asApplicant(staffUid);
+expectEqual("resubmit: staff accept", await decide("accepted", null), "ok");
+await asApplicant(uid);
+expectEqual(
+  "resubmit: accepted cannot reopen",
+  (await db.query(`SELECT public.reopen_application() AS r`)).rows[0].r,
+  "not_allowed",
+);
+
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) failed.`);
 process.exit(failures === 0 ? 0 : 1);

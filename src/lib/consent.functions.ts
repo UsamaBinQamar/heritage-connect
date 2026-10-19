@@ -23,6 +23,8 @@ export type ConsentDesk = {
   profileId: string;
   applicationStatus: string;
   submittedAt: string | null;
+  /** Staff's reason for a waitlist or decline, shown to the applicant. */
+  decisionReason: string | null;
   sections: Record<string, { percent: number; complete: boolean }>;
   consents: Record<string, boolean>;
 };
@@ -30,7 +32,7 @@ export type ConsentDesk = {
 async function ownProfile(context: { supabase: any; userId: string }) {
   const { data } = await context.supabase
     .from("profiles")
-    .select("id, application_status, application_submitted_at")
+    .select("id, application_status, application_submitted_at, decision_reason")
     .eq("auth_user_id", context.userId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -39,6 +41,7 @@ async function ownProfile(context: { supabase: any; userId: string }) {
     id: string;
     application_status: string;
     application_submitted_at: string | null;
+    decision_reason: string | null;
   };
 }
 
@@ -85,6 +88,7 @@ export const getConsentDesk = createServerFn({ method: "GET" })
       profileId: profile.id,
       applicationStatus: profile.application_status,
       submittedAt: profile.application_submitted_at,
+      decisionReason: profile.decision_reason,
       sections,
       consents,
     };
@@ -144,4 +148,19 @@ export const submitApplication = createServerFn({ method: "POST" })
       throw new Error("Some parts of your application are still missing.");
     }
     return { ok: true };
+  });
+
+/**
+ * A waitlisted or declined applicant reopens their application to change it
+ * and submit again. It returns to draft; the database refuses any other status.
+ */
+export const reopenApplication = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: outcome, error } = await context.supabase.rpc("reopen_application");
+    if (error || outcome !== "ok") {
+      if (error) console.error("[consent] reopen failed", error.message);
+      throw new Error("We could not reopen your application just now. Please try again.");
+    }
+    return { reopened: true };
   });

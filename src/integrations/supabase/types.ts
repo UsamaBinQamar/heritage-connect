@@ -592,6 +592,10 @@ export type Database = {
           application_started_at: string
           application_status: Database["public"]["Enums"]["application_status"]
           application_submitted_at: string | null
+          decided_at: string | null
+          decision_reason: string | null
+          last_decision: Database["public"]["Enums"]["application_status"] | null
+          submission_count: number
           auth_user_id: string | null
           country_of_residence: string | null
           created_at: string
@@ -612,6 +616,10 @@ export type Database = {
           application_started_at?: string
           application_status?: Database["public"]["Enums"]["application_status"]
           application_submitted_at?: string | null
+          decided_at?: string | null
+          decision_reason?: string | null
+          last_decision?: Database["public"]["Enums"]["application_status"] | null
+          submission_count?: number
           auth_user_id?: string | null
           country_of_residence?: string | null
           created_at?: string
@@ -632,6 +640,10 @@ export type Database = {
           application_started_at?: string
           application_status?: Database["public"]["Enums"]["application_status"]
           application_submitted_at?: string | null
+          decided_at?: string | null
+          decision_reason?: string | null
+          last_decision?: Database["public"]["Enums"]["application_status"] | null
+          submission_count?: number
           auth_user_id?: string | null
           country_of_residence?: string | null
           created_at?: string
@@ -752,9 +764,11 @@ export type Database = {
         Args: { _profile_id: string }
         Returns: number
       }
+      reopen_application: { Args: never; Returns: string }
       set_application_status: {
         Args: {
           _profile_id: string
+          _reason?: string
           _status: Database["public"]["Enums"]["application_status"]
         }
         Returns: string

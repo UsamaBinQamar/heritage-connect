@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
 
-/** Header for the staff area: the wordmark, Change password and Sign out. */
+/** Header for the staff area: the wordmark, Change password and Log out. */
 export function StaffMasthead() {
   const navigate = useNavigate();
   const [signingOut, setSigningOut] = useState(false);
@@ -37,7 +37,7 @@ export function StaffMasthead() {
             onClick={() => void signOut()}
             className="text-burgundy underline underline-offset-4 disabled:text-taupe"
           >
-            {signingOut ? "Signing out…" : "Sign out"}
+            {signingOut ? "Logging out…" : "Log out"}
           </button>
         </nav>
       </div>

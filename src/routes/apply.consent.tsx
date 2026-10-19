@@ -13,6 +13,7 @@ import {
 import { revealField } from "@/components/apply/field";
 import {
   getConsentDesk,
+  reopenApplication,
   setConsent,
   submitApplication,
   type ConsentDesk,
@@ -103,6 +104,30 @@ const CONSENT_LABELS: Record<string, string> = {
   matchmaking_consideration: "Agreement to be considered for introductions",
 };
 
+/** What the applicant sees once their application has left draft. */
+const RECEIPT: Record<string, { label: string; title: string; body: string }> = {
+  submitted: {
+    label: "Pending review",
+    title: "Thank you for taking the time to apply.",
+    body: "Your application has been received. A MotherlandMatch matchmaker will review it carefully and we\u2019ll be in touch.",
+  },
+  accepted: {
+    label: "Accepted",
+    title: "Your application has been accepted.",
+    body: "Welcome to MotherlandMatch. A matchmaker will be in touch with you personally about the next steps.",
+  },
+  waitlisted: {
+    label: "Waitlisted",
+    title: "You\u2019re on our waitlist.",
+    body: "Thank you for your patience. We have kept your application and will be in touch when we can take it further.",
+  },
+  declined: {
+    label: "Not accepted",
+    title: "We\u2019re unable to accept your application right now.",
+    body: "Thank you for applying to MotherlandMatch. We have read your application carefully.",
+  },
+};
+
 function ConsentStage() {
   useApplySession();
   const navigate = useNavigate();
@@ -110,6 +135,8 @@ function ConsentStage() {
   const load = useServerFn(getConsentDesk);
   const save = useServerFn(setConsent);
   const submit = useServerFn(submitApplication);
+  const reopen = useServerFn(reopenApplication);
+  const [reopening, setReopening] = useState(false);
 
   const [desk, setDesk] = useState<ConsentDesk | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -125,8 +152,24 @@ function ConsentStage() {
   const refresh = useCallback(async () => {
     const next = await load();
     setDesk(next);
-    if (next.applicationStatus !== "draft") setSubmitted(true);
+    setSubmitted(next.applicationStatus !== "draft");
   }, [load]);
+
+  // Waitlisted or declined: reopen to change answers, then submit again from here.
+  const onReopen = async () => {
+    setReopening(true);
+    setError(null);
+    try {
+      await reopen();
+      await refresh();
+      window.scrollTo({ top: 0 });
+    } catch (err) {
+      console.error(err);
+      setError("We could not reopen your application just now. Please try again.");
+    } finally {
+      setReopening(false);
+    }
+  };
 
   // Applicants start without a password; offer one so they can check back later.
   useEffect(() => {
@@ -237,18 +280,51 @@ function ConsentStage() {
   }
 
   if (submitted) {
+    const status = desk?.applicationStatus ?? "submitted";
+    const view = RECEIPT[status] ?? RECEIPT["submitted"]!;
+    const canResubmit = status === "waitlisted" || status === "declined";
     return (
       <main className="min-h-screen bg-ivory">
         <ApplyMasthead />
         <div className="mx-auto max-w-[760px] px-6 pt-16 pb-24 sm:pt-24">
           <Panel>
-            <h1 className="font-display text-[44px] leading-[1.05] font-semibold text-charcoal sm:text-[52px]">
-              Thank you for taking the time to apply.
-            </h1>
-            <p className="mt-6 max-w-[46ch] text-[19px] leading-[1.6] text-charcoal">
-              Your application has been received. A MotherlandMatch matchmaker will review it
-              carefully and we&rsquo;ll be in touch.
+            <p className="inline-flex rounded-[999px] bg-sand px-4 py-1.5 text-[14px] font-medium text-charcoal">
+              Status: {view.label}
             </p>
+            <h1 className="mt-6 font-display text-[44px] leading-[1.05] font-semibold text-charcoal sm:text-[52px]">
+              {view.title}
+            </h1>
+            <p className="mt-6 max-w-[46ch] text-[19px] leading-[1.6] text-charcoal">{view.body}</p>
+
+            {canResubmit && desk?.decisionReason && (
+              <div className="mt-8 rounded-[10px] border border-sand-deep bg-white p-6">
+                <p className="text-[14px] font-medium tracking-[0.12em] text-taupe uppercase">
+                  From your matchmaker
+                </p>
+                <p className="mt-3 text-[17px] leading-[1.6] whitespace-pre-wrap text-charcoal">
+                  {desk.decisionReason}
+                </p>
+              </div>
+            )}
+
+            {canResubmit && (
+              <div className="mt-8">
+                <p className="text-[16px] leading-[1.6] text-charcoal">
+                  You can update your answers and send your application again. It will be reviewed
+                  afresh.
+                </p>
+                <button
+                  type="button"
+                  disabled={reopening}
+                  onClick={() => void onReopen()}
+                  className={`${primaryButtonClass} mt-5`}
+                >
+                  {reopening ? "Opening…" : "Update and resubmit"}
+                </button>
+                {error && <p className="mt-4 text-[15px] font-medium text-wine-red">{error}</p>}
+              </div>
+            )}
+
             {needsPassword && (
               <div className="mt-10 rounded-[10px] border border-sand-deep bg-white p-6">
                 <p className="text-[17px] font-semibold text-charcoal">Want to check back later?</p>

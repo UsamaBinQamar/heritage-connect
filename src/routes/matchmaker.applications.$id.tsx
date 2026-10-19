@@ -28,6 +28,14 @@ export const Route = createFileRoute("/matchmaker/applications/$id")({
   component: ApplicationFilePage,
 });
 
+const STATUS_LABEL: Record<string, string> = {
+  draft: "Draft (reopened by the applicant)",
+  submitted: "Pending review",
+  accepted: "Accepted",
+  waitlisted: "Waitlisted",
+  declined: "Declined",
+};
+
 function pretty(value: unknown): string {
   if (value === null || value === undefined || value === "") return "—";
   if (Array.isArray(value)) return value.length ? value.join(", ") : "—";
@@ -39,7 +47,9 @@ function pretty(value: unknown): string {
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="rounded-[16px] border border-sand-deep/80 bg-white px-6 py-7">
-      <h2 className="font-display text-[24px] leading-tight font-semibold text-charcoal">{title}</h2>
+      <h2 className="font-display text-[24px] leading-tight font-semibold text-charcoal">
+        {title}
+      </h2>
       <div className="mt-5">{children}</div>
     </section>
   );
@@ -50,7 +60,9 @@ function Facts({ rows }: { rows: [string, unknown][] }) {
     <dl className="grid grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2">
       {rows.map(([label, value]) => (
         <div key={label}>
-          <dt className="text-[13px] font-semibold tracking-[0.06em] text-charcoal uppercase">{label}</dt>
+          <dt className="text-[13px] font-semibold tracking-[0.06em] text-charcoal uppercase">
+            {label}
+          </dt>
           <dd className="mt-1 text-[16px] text-charcoal">{pretty(value)}</dd>
         </div>
       ))}
@@ -128,14 +140,30 @@ function ApplicationFilePage() {
             Back to applications
           </Link>
         </div>
-        <h1 className="mt-4 font-display text-[38px] leading-tight font-semibold text-charcoal">{name}</h1>
+        <h1 className="mt-4 font-display text-[38px] leading-tight font-semibold text-charcoal">
+          {name}
+        </h1>
 
         <div className="mt-8 grid gap-6">
           <Group title="Status">
             <Facts
               rows={[
-                ["Status", p.application_status],
-                ["Submitted", p.application_submitted_at ? new Date(p.application_submitted_at).toLocaleString() : null],
+                ["Status", STATUS_LABEL[p.application_status] ?? p.application_status],
+                [
+                  "Submitted",
+                  p.application_submitted_at
+                    ? new Date(p.application_submitted_at).toLocaleString()
+                    : null,
+                ],
+                [
+                  "Times submitted",
+                  p.submission_count > 1
+                    ? `${p.submission_count} (resubmitted)`
+                    : p.submission_count,
+                ],
+                ["Last decision", p.last_decision ? STATUS_LABEL[p.last_decision] : null],
+                ["Decided", p.decided_at ? new Date(p.decided_at).toLocaleString() : null],
+                ["Reason shown to applicant", p.decision_reason],
               ]}
             />
           </Group>
@@ -211,8 +239,13 @@ function ApplicationFilePage() {
             ) : (
               <ul className="divide-y divide-sand-deep/50">
                 {file.preferences.map((pref) => (
-                  <li key={pref.attribute_key} className="flex flex-wrap items-baseline justify-between gap-3 py-3">
-                    <span className="text-[15px] font-medium text-charcoal">{pretty(pref.attribute_key)}</span>
+                  <li
+                    key={pref.attribute_key}
+                    className="flex flex-wrap items-baseline justify-between gap-3 py-3"
+                  >
+                    <span className="text-[15px] font-medium text-charcoal">
+                      {pretty(pref.attribute_key)}
+                    </span>
                     <span className="text-[16px] text-charcoal">
                       {pref.value
                         ? pretty(pref.value)
@@ -220,7 +253,9 @@ function ApplicationFilePage() {
                           ? JSON.stringify(pref.json)
                           : "—"}
                     </span>
-                    <span className="text-[14px] text-taupe">{WEIGHT_LABEL[pref.weight] ?? pref.weight}</span>
+                    <span className="text-[14px] text-taupe">
+                      {WEIGHT_LABEL[pref.weight] ?? pref.weight}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -233,7 +268,10 @@ function ApplicationFilePage() {
             ) : (
               <div className="space-y-4">
                 {file.notes.map((note) => (
-                  <p key={note.id} className="text-[16px] leading-relaxed whitespace-pre-wrap text-charcoal">
+                  <p
+                    key={note.id}
+                    className="text-[16px] leading-relaxed whitespace-pre-wrap text-charcoal"
+                  >
                     {note.body}
                   </p>
                 ))}
@@ -265,7 +303,12 @@ function ApplicationFilePage() {
             )}
           </Group>
 
-          <ReviewDecision profileId={id} status={p.application_status} onChange={refresh} />
+          <ReviewDecision
+            profileId={id}
+            status={p.application_status}
+            reason={p.decision_reason ?? ""}
+            onChange={refresh}
+          />
         </div>
 
         <Link to="/matchmaker" className={`${quietButtonClass} mt-10`}>
@@ -283,24 +326,36 @@ function ApplicationFilePage() {
 function ReviewDecision({
   profileId,
   status,
+  reason,
   onChange,
 }: {
   profileId: string;
   status: string;
+  reason: string;
   onChange: () => void | Promise<void>;
 }) {
   const decide = useServerFn(setApplicationStatus);
+  // Waitlist and decline open a reason box first; accept is recorded at once.
+  const [choice, setChoice] = useState<"waitlisted" | "declined" | null>(null);
+  const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const onDecide = async (value: string) => {
+  const record = async (value: string, why: string) => {
     setBusy(value);
     setNotice(null);
     try {
-      const { outcome } = await decide({ data: { profile_id: profileId, status: value } });
+      const { outcome } = await decide({
+        data: { profile_id: profileId, status: value, reason: why },
+      });
       if (outcome === "ok") {
-        setNotice(`Status set to ${pretty(value).toLowerCase()}.`);
+        setNotice(
+          `Status set to ${STATUS_LABEL[value]?.toLowerCase() ?? value}. The applicant can see it.`,
+        );
+        setChoice(null);
         await onChange();
+      } else if (outcome === "reason_required") {
+        setNotice("Please write a reason. The applicant will see it.");
       } else if (outcome === "not_submitted") {
         setNotice("This application has not been submitted yet.");
       } else {
@@ -313,28 +368,86 @@ function ReviewDecision({
     }
   };
 
+  const pick = (value: string) => {
+    setNotice(null);
+    if (value === "accepted") {
+      void record(value, "");
+      return;
+    }
+    setChoice(value as "waitlisted" | "declined");
+    setDraft(status === value ? reason : "");
+  };
+
   return (
     <Group title="Decision">
       <p className="text-[16px] text-charcoal">
-        Current status: <span className="font-medium">{pretty(status)}</span>
+        Current status:{" "}
+        <span className="font-medium">{STATUS_LABEL[status] ?? pretty(status)}</span>
       </p>
       <div className="mt-5 flex flex-wrap gap-3">
-        {DECISIONS.map((d) => (
-          <button
-            key={d.value}
-            type="button"
-            disabled={busy !== null || d.value === status}
-            onClick={() => void onDecide(d.value)}
-            className={
-              d.value === status
-                ? "rounded-[999px] bg-burgundy px-6 py-3 text-[15px] font-medium text-ivory"
-                : "rounded-[999px] border border-sand-deep bg-white px-6 py-3 text-[15px] font-medium text-charcoal disabled:cursor-not-allowed disabled:text-taupe"
-            }
-          >
-            {busy === d.value ? "Saving" : d.label}
-          </button>
-        ))}
+        {DECISIONS.map((d) => {
+          const current = d.value === status;
+          const open = d.value === choice;
+          return (
+            <button
+              key={d.value}
+              type="button"
+              disabled={busy !== null || (current && d.value === "accepted")}
+              onClick={() => pick(d.value)}
+              className={
+                current || open
+                  ? "rounded-[999px] bg-burgundy px-6 py-3 text-[15px] font-medium text-ivory"
+                  : "rounded-[999px] border border-sand-deep bg-white px-6 py-3 text-[15px] font-medium text-charcoal disabled:cursor-not-allowed disabled:text-taupe"
+              }
+            >
+              {busy === d.value ? "Saving" : d.label}
+            </button>
+          );
+        })}
       </div>
+
+      {choice && (
+        <div className="mt-6">
+          <label htmlFor="decision-reason" className="block text-[16px] font-medium text-charcoal">
+            Reason for {choice === "waitlisted" ? "the waitlist" : "declining"}
+          </label>
+          <p className="mt-1 text-[14px] text-taupe">
+            The applicant sees this on their application. They can change their answers and submit
+            again.
+          </p>
+          <textarea
+            id="decision-reason"
+            rows={4}
+            maxLength={1000}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            className="mt-3 w-full rounded-[10px] border border-input bg-card px-4 py-3 text-[16px] text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring"
+          />
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              disabled={busy !== null || !draft.trim()}
+              onClick={() => void record(choice, draft)}
+              className="rounded-[999px] bg-burgundy px-6 py-3 text-[15px] font-medium text-ivory disabled:cursor-not-allowed disabled:bg-taupe"
+            >
+              {busy
+                ? "Saving"
+                : choice === "waitlisted"
+                  ? "Waitlist with this reason"
+                  : "Decline with this reason"}
+            </button>
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => setChoice(null)}
+              className="rounded-[999px] border border-sand-deep bg-white px-6 py-3 text-[15px] font-medium text-charcoal"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {notice ? <p className="mt-4 text-[15px] text-charcoal">{notice}</p> : null}
     </Group>
   );
