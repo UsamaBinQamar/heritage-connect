@@ -153,6 +153,22 @@ await expectError(
   [profileId],
 );
 
+// Relationship: "Yes" to relocating before any country is picked saves as null;
+// the database refuses an empty list.
+await expectOk(
+  "relationship: yes with no countries yet (null)",
+  `INSERT INTO public.profile_facts (profile_id, willing_to_relocate, countries_would_relocate_to)
+   VALUES ($1, 'yes', NULL)
+   ON CONFLICT (profile_id) DO UPDATE SET willing_to_relocate = EXCLUDED.willing_to_relocate,
+     countries_would_relocate_to = EXCLUDED.countries_would_relocate_to`,
+  [profileId],
+);
+await expectError(
+  "relationship: empty country list refused",
+  `UPDATE public.profile_facts SET countries_would_relocate_to = '{}' WHERE profile_id = $1`,
+  [profileId],
+);
+
 // The same person applies again with the same email, in different case.
 await asServer();
 const [{ id: againId }] = (

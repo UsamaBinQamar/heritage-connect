@@ -31,11 +31,7 @@ export const MARRIAGE_TIMELINES = [
   "unhurried",
 ] as const;
 export const YES_NO_DEPENDS = ["yes", "no", "depends"] as const;
-export const INTRODUCTION_STYLES = [
-  "blind_first",
-  "photo_first",
-  "matchmaker_decides",
-] as const;
+export const INTRODUCTION_STYLES = ["blind_first", "photo_first", "matchmaker_decides"] as const;
 
 function serverPublicClient() {
   const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
@@ -107,12 +103,15 @@ export const getMyRelationship = createServerFn({ method: "GET" })
 const oneOf = (allowed: readonly string[], value: unknown) =>
   allowed.includes(String(value ?? "")) ? String(value) : "";
 
-const isoList = (value: unknown): string[] => {
-  if (!Array.isArray(value)) return [];
-  return value
+// The database accepts a country list only with at least one code, so "none
+// chosen yet" (autosave right after answering Yes) is stored as null.
+const isoList = (value: unknown): string[] | null => {
+  if (!Array.isArray(value)) return null;
+  const codes = value
     .map((v) => String(v ?? "").toUpperCase())
     .filter((v) => /^[A-Z]{2}$/.test(v))
     .slice(0, 60);
+  return codes.length ? codes : null;
 };
 
 /**
