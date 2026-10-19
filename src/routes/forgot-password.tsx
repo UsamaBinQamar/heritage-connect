@@ -9,16 +9,18 @@ import {
   inputClass,
   primaryButtonClass,
 } from "@/components/apply/ApplyChrome";
-import { authErrorMessage } from "@/lib/staff-auth";
+import { authErrorMessage } from "@/lib/account";
 
 export const Route = createFileRoute("/forgot-password")({
   ssr: false,
+  validateSearch: (search: { email?: unknown }): { email?: string } =>
+    typeof search.email === "string" ? { email: search.email.slice(0, 255) } : {},
   head: () => ({
     meta: [
-      { title: "Reset your password | MotherlandMatch" },
+      { title: "Set or reset your password | MotherlandMatch" },
       {
         name: "description",
-        content: "Reset the password for your MotherlandMatch staff account.",
+        content: "Set or reset the password for your MotherlandMatch account.",
       },
       { name: "robots", content: "noindex, nofollow" },
     ],
@@ -29,7 +31,7 @@ export const Route = createFileRoute("/forgot-password")({
 const emailOk = (v: string) => /^[^\s@]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(v.trim());
 
 function ForgotPasswordPage() {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(Route.useSearch().email ?? "");
   const [step, setStep] = useState<"email" | "sent">("email");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -68,17 +70,17 @@ function ForgotPasswordPage() {
 
   return (
     <main className="min-h-screen bg-ivory">
-      <ApplyMasthead />
+      <ApplyMasthead account={false} />
       <div className="mx-auto max-w-[620px] px-6 pt-16 pb-24">
         <Panel>
           <h1 className="font-display text-[40px] leading-[1.05] font-semibold text-charcoal sm:text-[46px]">
-            Reset your password.
+            Set or reset your password.
           </h1>
 
           {step === "email" ? (
             <form className="mt-5" noValidate onSubmit={(e) => void send(e)}>
               <p className="text-[19px] leading-[1.6] text-charcoal">
-                Enter your email and we will send you a link to choose a new password.
+                Enter your email and we will send you a link to choose a password.
               </p>
               <div className="mt-10">
                 <FieldShell id="forgot-email" label="Email">

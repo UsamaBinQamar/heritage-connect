@@ -19,7 +19,7 @@ import {
   hasChosenPassword,
   passwordProblem,
   type PasswordProblem,
-} from "@/lib/staff-auth";
+} from "@/lib/account";
 
 export const Route = createFileRoute("/set-password")({
   ssr: false,
@@ -28,7 +28,7 @@ export const Route = createFileRoute("/set-password")({
       { title: "Choose a password | MotherlandMatch" },
       {
         name: "description",
-        content: "Choose the password for your MotherlandMatch staff account.",
+        content: "Choose the password for your MotherlandMatch account.",
       },
       { name: "robots", content: "noindex, nofollow" },
     ],
@@ -37,7 +37,7 @@ export const Route = createFileRoute("/set-password")({
 });
 
 /**
- * One page for three arrivals: first sign-in with a temporary password, a
+ * One page for three arrivals: a staff member's first sign-in with a temporary password, a
  * reset link from the email, and "Change password" in the staff area. Each
  * one needs a session; the reset link creates it from the URL.
  */

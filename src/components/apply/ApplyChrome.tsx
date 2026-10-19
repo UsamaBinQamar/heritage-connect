@@ -1,6 +1,8 @@
 import { useEffect, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 
 import { FieldContext, revealField } from "@/components/apply/field";
+import { useAccount } from "@/lib/account";
 
 export const SECTIONS = [
   { key: "contact", label: "Contact" },
@@ -12,15 +14,45 @@ export const SECTIONS = [
   { key: "consent", label: "Consent" },
 ] as const;
 
-export function ApplyMasthead() {
+/** `account={false}` hides Log in / Sign out, for the log-in pages themselves. */
+export function ApplyMasthead({ account = true }: { account?: boolean }) {
   return (
     <header className="border-b border-sand-deep/70 bg-ivory">
-      <div className="mx-auto flex h-[72px] max-w-[1080px] items-center px-6">
-        <span className="font-display text-[22px] leading-none font-semibold tracking-[0.14em] text-charcoal uppercase">
+      <div className="mx-auto flex min-h-[72px] max-w-[1080px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-3">
+        <Link
+          to="/"
+          className="font-display text-[18px] leading-none font-semibold tracking-[0.14em] text-charcoal uppercase sm:text-[22px]"
+        >
           Motherland<span className="text-burgundy">Match</span>
-        </span>
+        </Link>
+        {account && <AccountLinks />}
       </div>
     </header>
+  );
+}
+
+function AccountLinks() {
+  const { state, signOut } = useAccount();
+  const link = "text-[15px] font-medium text-burgundy underline-offset-4 hover:underline";
+  if (state === "loading") return null;
+  if (state === "signed-out") {
+    return (
+      <Link to="/login" className={link}>
+        Log in
+      </Link>
+    );
+  }
+  return (
+    <nav className="flex items-center gap-5">
+      {state === "staff" && (
+        <Link to="/matchmaker" className={link}>
+          Dashboard
+        </Link>
+      )}
+      <button type="button" onClick={() => void signOut()} className={link}>
+        Sign out
+      </button>
+    </nav>
   );
 }
 

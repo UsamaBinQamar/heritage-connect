@@ -6,7 +6,7 @@ Client project for Bernard (MotherlandMatch, a private, human-led matchmaking ho
 
 **Milestone 1**
 - Application with no account and no code: contact, identity, life, relationship, partner preferences, consents, at least one private photo. Spam protection on the form.
-- Staff sign in with email and a one-time code. One access level for all staff.
+- Staff sign in with email and a one-time code. One access level for all staff. (Built as email and password; Bernard asked to confirm.)
 - All applications in one place, private photos visible to signed-in staff only.
 - Status: accepted, waitlisted or declined.
 - Staff edit details, and add, replace or remove photos.
@@ -26,7 +26,9 @@ Client project for Bernard (MotherlandMatch, a private, human-led matchmaking ho
 - **Database:** migrations live in `supabase/migrations`. Never edit one that has been applied; add a new migration and run `supabase db push`. Check what is applied with `supabase migration list --linked`.
 - **No Docker:** do not start Docker or `supabase start`. To check SQL locally, run it on PGlite (`@electric-sql/pglite`) with stand-in `auth` and `storage` schemas.
 - **Supabase grants:** new public tables get table-wide privileges for `anon` and `authenticated`. A column-level `GRANT` narrows nothing unless the table-wide privilege is revoked first (see `20261016130000_restrict_applicant_writes.sql`).
-- **Staff access:** one role, `staff`. Invite the person under Supabase Authentication, then run `select public.grant_staff_access('name@example.com');` in the SQL editor.
+- **Accounts:** everyone logs in at `/login` with email and password (`src/lib/account.ts`). Applicants start with no password: the contact step creates a confirmed account on the server and signs them in on that browser (`startApplication`). An email that already has an account is told to log in, never signed in from `/apply`. Forgot password lets anyone set one.
+- **Staff access:** one role, `staff`. Create the user under Supabase Authentication → Add user → Create new user (temporary password, Auto Confirm), then run `select public.grant_staff_access('name@example.com');` in the SQL editor. They choose their own password on first log-in.
+- **Locked after submit:** applicant write policies use `current_draft_profile_id()`, so nothing changes once the status is not `draft`. New applicant-writable tables need the same split: read with `current_profile_id()`, write with `current_draft_profile_id()`.
 - **Images:** keep real files in `src/assets/`. Lovable's `.asset.json` pointers (`/__l5e/assets-v1/...`) only resolve on Lovable hosting and 404 everywhere else.
 - **Forms:** wrap each field in `FieldShell` (its `id` matches the error key). On Continue, flag errors, call `revealField(orderByPage(keys))` from `src/components/apply/field.ts` and render `ErrorSummary`. Do not disable Continue for validation; disable it only while saving or sending.
 - **Dev server:** run `npm run dev` from this folder (port 8080).

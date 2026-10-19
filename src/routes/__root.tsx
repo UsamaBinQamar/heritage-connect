@@ -12,7 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { SITE_ORIGIN } from "../lib/seo";
-import { usePasswordRecoveryRedirect } from "../lib/staff-auth";
+import { usePasswordRecoveryRedirect } from "../lib/account";
 
 function NotFoundComponent() {
   return (

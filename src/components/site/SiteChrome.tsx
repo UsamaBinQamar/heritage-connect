@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 
+import { useAccount } from "@/lib/account";
 import headerLockup from "@/assets/motherlandmatch-lockup.png";
 import monogram from "@/assets/motherlandmatch-monogram.png";
 
@@ -75,6 +76,31 @@ export const ctaQuietLight =
 export const ctaQuietDark =
   "inline-flex h-[56px] items-center justify-center rounded-[10px] border border-sand-deep px-8 text-[16px] font-medium text-charcoal transition-colors duration-300 hover:bg-sand";
 
+/** Log in when signed out; a way back in for applicants and staff when signed in. */
+function AccountLink({ className, onClick }: { className: string; onClick?: () => void }) {
+  const { state } = useAccount();
+  if (state === "loading") return null;
+  if (state === "staff") {
+    return (
+      <Link to="/matchmaker" onClick={onClick} className={className}>
+        Dashboard
+      </Link>
+    );
+  }
+  if (state === "applicant") {
+    return (
+      <Link to="/apply" search={{}} onClick={onClick} className={className}>
+        My application
+      </Link>
+    );
+  }
+  return (
+    <Link to="/login" onClick={onClick} className={className}>
+      Log in
+    </Link>
+  );
+}
+
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
 
@@ -96,6 +122,7 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
+          <AccountLink className="text-[15px] font-medium text-burgundy transition-colors hover:text-wine" />
           <ApplyLink className="inline-flex h-[46px] items-center justify-center rounded-[999px] bg-burgundy px-6 text-[15px] font-semibold text-ivory transition-colors duration-300 hover:bg-wine">
             Apply Now
           </ApplyLink>
@@ -128,6 +155,10 @@ export function SiteHeader() {
                 {item.label}
               </Link>
             ))}
+            <AccountLink
+              onClick={() => setOpen(false)}
+              className="py-2.5 text-[17px] font-medium text-burgundy"
+            />
             <ApplyLink className="mt-3 inline-flex h-[52px] items-center justify-center rounded-[10px] bg-burgundy px-6 text-[16px] font-semibold text-ivory">
               Apply Now
             </ApplyLink>
@@ -180,7 +211,7 @@ export function SiteFooter() {
             </li>
             <li>
               <Link to="/login" className="transition-colors hover:text-burgundy">
-                Staff sign in
+                Log in
               </Link>
             </li>
           </ul>

@@ -77,28 +77,34 @@ What happens when someone leaves halfway (from the code):
 - **Deciding:** three buttons on the application page: Accept, Waitlist, Decline (`set_application_status`). Drafts cannot be decided. A decision can be changed later. The applicant is not emailed.
 - **Against the Milestone 1 scope:** done are the list, details and photos, the decision, and the single staff level. Still to build: staff sign-in with a one-time code (now an email link), staff editing of details and photos, and the full filter set (now only status and gender).
 
+## 8. Log in for everyone, no code to apply, locked after submit (2026-10-17 to 19)
+- **Apply with no code:** the contact step calls `startApplication`. For a new email the server creates a confirmed account, saves and binds the draft, and returns a one-time token; the browser exchanges it for a session with `verifyOtp`. No email is sent. If anything fails after the account is created, the account is deleted so the person can try again.
+- **Already applied:** an email that already has an account is never signed in from `/apply`. The page says "You've already applied with this email" with Log in and "Set or reset your password". This tells anyone typing an email whether it has applied; spam protection should limit bulk checks.
+- **Log in:** `/login` is email and password for applicants and staff. Applicants who never chose a password use Forgot password (`/forgot-password` → email → `/set-password`). Staff created with a temporary password choose their own on first log-in. After log-in, staff go to `/matchmaker` and applicants to their next unfinished section.
+- **Header:** the site header shows Log in, or My application / Dashboard when signed in. Application pages show Log in or Sign out. The footer link reads "Log in".
+- **Locked after submit:** migration `20261019120000_lock_submitted_applications.sql` (applied to the live project) lets applicants read but not change answers, contact details, consents or photos once the status is not `draft`. Any step then opens the receipt, which shows for every non-draft status and offers an optional "Set a password". `supabase/tests/save-replay.mjs` checks the lock.
+- **Removed:** the anonymous `saveContactDraft` (it wrote drafts by email for anyone) and every email-link sign-in.
+
 ## Open items
 
 **Milestone 1 work still to build**
-1. Application with no login and no code (it still signs applicants in with an email link).
-2. Staff sign-in with a one-time code (it still uses a magic link).
-3. Staff editing of details and photos in the dashboard.
-4. The full filter set.
-5. Spam protection on the form.
+1. Staff editing of details and photos in the dashboard.
+2. The full filter set.
+3. Spam protection on the contact step (it also limits the "already applied" check).
 
-**Found in testing** (item 1 above may replace the sign-in parts)
-- Signing in from "Welcome back" always lands on `/matchmaker`; applicants should go to their next unfinished section and staff to the list.
-- An accepted, waitlisted or declined applicant who comes back sees "Review and submit" again; the thank-you page only shows for `submitted`. Submitting again does not change the status.
-- Nothing locks an application once submitted: the steps still open and autosave. Decide with Bernard whether answers can change before review.
+**Decisions**
+- Staff and applicants log in with a password instead of the one-time code in the offer; Bernard has been asked to confirm.
 - Applicants are not told about a decision. Decide with Bernard whether accept, waitlist or decline should send an email.
+- New-application email to hello@motherlandmatch.com: not in the Milestone 1 offer.
 
 **Setup**
-- Add `SUPABASE_SERVICE_ROLE_KEY` to Vercel (Production and Preview), then redeploy.
-- In Supabase, Authentication → URL Configuration, add `https://heritage-connect-ten.vercel.app/**` to Redirect URLs, or email links fall back to the Site URL.
-- Create staff accounts with `grant_staff_access`.
-- Set up custom SMTP before real users: Supabase's built-in email only sends to the project team and is rate-limited. Until then neither Bernard nor applicants receive sign-in emails on the live site.
-- Contact form messages are saved but there is no page to read them since the admin enquiries page was removed; decide whether Milestone 1 needs one.
-- `package-lock.json` appeared next to `bun.lock`; Lovable uses bun, so keep only one lockfile in the repo.
+- In Supabase, Authentication → URL Configuration: Site URL `https://heritage-connect-ten.vercel.app`, Redirect URLs `https://heritage-connect-ten.vercel.app/**` and `http://localhost:8080/**`.
+- Set up custom SMTP: Supabase's built-in email only sends to the project team, so Forgot password does not reach applicants or Bernard until then.
+- Turn off public sign-ups in Supabase (Authentication → Sign In / Providers). The app creates accounts on the server only.
+- Create staff accounts: Authentication → Add user → Create new user (temporary password, Auto Confirm), then `grant_staff_access`.
+- Contact form messages are saved but there is no page to read them; decide whether Milestone 1 needs one.
+- `package-lock.json` sits next to `bun.lock`; Lovable uses bun, so keep only one lockfile.
+- The GitHub repo is public and `.env` is tracked: never put the service role key in `.env`.
 
 **Waiting on Bernard**
 - The three unused image pointers, and the open items in `roadmap.md`.

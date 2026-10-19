@@ -18,6 +18,8 @@ import {
   type ConsentDesk,
 } from "@/lib/consent.functions";
 import { useApplySession } from "@/lib/use-apply-session";
+import { hasChosenPassword } from "@/lib/account";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/apply/consent")({
   head: () => ({
@@ -116,12 +118,21 @@ function ConsentStage() {
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [attempted, setAttempted] = useState(false);
+  const [needsPassword, setNeedsPassword] = useState(false);
 
+  // Accepted, waitlisted and declined applications are submitted too: all of
+  // them show the receipt, and none can be changed or sent again.
   const refresh = useCallback(async () => {
     const next = await load();
     setDesk(next);
-    if (next.applicationStatus === "submitted") setSubmitted(true);
+    if (next.applicationStatus !== "draft") setSubmitted(true);
   }, [load]);
+
+  // Applicants start without a password; offer one so they can check back later.
+  useEffect(() => {
+    if (!submitted) return;
+    void supabase.auth.getUser().then(({ data }) => setNeedsPassword(!hasChosenPassword(data.user)));
+  }, [submitted]);
 
   useEffect(() => {
     let cancelled = false;
@@ -214,6 +225,19 @@ function ConsentStage() {
             <p className="mt-6 max-w-[46ch] text-[19px] leading-[1.6] text-charcoal">
               Your application has been received. A MotherlandMatch matchmaker will review it carefully and we&rsquo;ll be in touch.
             </p>
+            {needsPassword && (
+              <div className="mt-10 rounded-[10px] border border-sand-deep bg-white p-6">
+                <p className="text-[17px] font-semibold text-charcoal">
+                  Want to check back later?
+                </p>
+                <p className="mt-2 text-[16px] leading-[1.6] text-charcoal">
+                  Set a password and you can log in from any device. This is optional.
+                </p>
+                <Link to="/set-password" className={`${primaryButtonClass} mt-5`}>
+                  Set a password
+                </Link>
+              </div>
+            )}
             <div className="mt-12">
               <Link to="/" className={quietButtonClass}>
                 Return home

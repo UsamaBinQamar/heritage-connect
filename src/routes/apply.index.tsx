@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -10,7 +10,12 @@ import {
 } from "libphonenumber-js";
 
 import { supabase } from "@/integrations/supabase/client";
-import { listCountries, saveContactDraft, attachDraftToAccount } from "@/lib/apply.functions";
+import {
+  attachDraftToAccount,
+  listCountries,
+  saveMyContact,
+  startApplication,
+} from "@/lib/apply.functions";
 import { getMyApplication } from "@/lib/identity.functions";
 import { APPLICATION_SECTIONS, getApplicationOverview } from "@/lib/application.functions";
 import {
@@ -107,7 +112,7 @@ const EMPTY: Values = {
 
 const CONTACT_CACHE_KEY = "mm.apply.contact";
 
-const emailOk = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
+const emailOk = (v: string) => /^[^\s@]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(v.trim());
 
 function e164(phone: string, country: string): string | null {
   const parsed = parsePhoneNumberFromString(phone, country as CountryCode);
@@ -131,7 +136,8 @@ function ContactStage() {
   const { data: countries } = useSuspenseQuery(countriesQuery);
   const isEdit = Route.useSearch().edit === 1;
   const navigate = useNavigate();
-  const saveDraft = useServerFn(saveContactDraft);
+  const start = useServerFn(startApplication);
+  const saveContact = useServerFn(saveMyContact);
   const attachDraft = useServerFn(attachDraftToAccount);
   const loadSaved = useServerFn(getMyApplication);
   const loadOverview = useServerFn(getApplicationOverview);
@@ -141,14 +147,14 @@ function ContactStage() {
   const [errors, setErrors] = useState<Errors>({});
   const [missing, setMissing] = useState<(keyof Values)[]>([]);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
-  const [step, setStep] = useState<"contact" | "verify">("contact");
-  const [sending, setSending] = useState(false);
-  const [resendIn, setResendIn] = useState(0);
+  // Signed in: answers save as they go. Signed out: nothing is stored until Continue.
+  const [signedIn, setSignedIn] = useState(false);
+  const [alreadyApplied, setAlreadyApplied] = useState(false);
+  const [starting, setStarting] = useState(false);
   const lastSaved = useRef<string>("");
 
-  // Returning from a later stage, or arriving back from the confirmation email:
-  // restore what is already saved, bind the draft to the account, and send the
-  // person to the first section they have not finished. Never a second person.
+  // Signed in on this browser: restore what is saved and send the person to the
+  // first section they have not finished. Never a second application.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -161,7 +167,8 @@ function ContactStage() {
 
         const { data } = await supabase.auth.getSession();
         const session = data.session;
-        if (!session) return;
+        if (!session || cancelled) return;
+        setSignedIn(true);
 
         const email = (session.user.email ?? "").trim().toLowerCase();
         if (email) {
@@ -184,12 +191,15 @@ function ContactStage() {
           country_of_residence: saved.contact.country_of_residence || prev.country_of_residence,
           gender: saved.contact.gender || prev.gender,
         }));
-        setStep("contact");
-
-        if (isEdit) return;
 
         const overview = await loadOverview();
         if (cancelled) return;
+        // Submitted applications are locked; the consent page shows the receipt.
+        if (overview && overview.applicationStatus !== "draft") {
+          await navigate({ to: "/apply/consent", replace: true });
+          return;
+        }
+        if (isEdit) return;
         const resume = overview?.resumeSection
           ? APPLICATION_SECTIONS.find((s) => s.key === overview.resumeSection)
           : undefined;
@@ -209,7 +219,7 @@ function ContactStage() {
     };
   }, [attachDraft, loadSaved, loadOverview, isEdit, navigate]);
 
-  // Keep what is on screen across the confirmation step and a browser Back.
+  // Keep what is on screen across a refresh and a browser Back.
   useEffect(() => {
     try {
       sessionStorage.setItem(CONTACT_CACHE_KEY, JSON.stringify(values));
@@ -244,46 +254,42 @@ function ContactStage() {
   ].filter(Boolean).length;
   const percent = Math.round((filled / 7) * 100);
 
+  const payload = useMemo(
+    () => ({ ...values, email: values.email.trim().toLowerCase(), phone: normalisedPhone ?? "" }),
+    [normalisedPhone, values],
+  );
+
+  // Signed-in saves only: before Continue there is no account to save into.
   const persist = useCallback(async () => {
-    if (!draftReady) return null;
-    const payload = {
-      ...values,
-      email: values.email.trim().toLowerCase(),
-      phone: normalisedPhone as string,
-    };
+    if (!signedIn || !draftReady) return false;
     const signature = JSON.stringify(payload);
-    if (signature === lastSaved.current) return signature;
+    if (signature === lastSaved.current) return true;
     setSaveState("saving");
     try {
-      await saveDraft({ data: payload });
+      await saveContact({ data: payload });
       lastSaved.current = signature;
       setSaveState("saved");
-      return signature;
+      return true;
     } catch (error) {
       console.error(error);
       setSaveState("failed");
-      return null;
+      return false;
     }
-  }, [draftReady, normalisedPhone, saveDraft, values]);
+  }, [draftReady, payload, saveContact, signedIn]);
 
   // Field-level autosave: quiet, debounced, never on every keystroke.
   useEffect(() => {
-    if (!draftReady || step !== "contact") return;
+    if (!signedIn || !draftReady) return;
     const timer = setTimeout(() => {
       void persist();
     }, 1000);
     return () => clearTimeout(timer);
-  }, [draftReady, persist, step]);
-
-  useEffect(() => {
-    if (resendIn <= 0) return;
-    const timer = setTimeout(() => setResendIn((s) => s - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [resendIn]);
+  }, [draftReady, persist, signedIn]);
 
   const set = (key: keyof Values, value: string) => {
     setValues((prev) => ({ ...prev, [key]: value }));
     setErrors((prev) => ({ ...prev, [key]: undefined, form: undefined }));
+    if (key === "email") setAlreadyApplied(false);
   };
 
   const blur = (key: keyof Values) => {
@@ -298,32 +304,35 @@ function ContactStage() {
     .filter((key) => found[key])
     .map((key) => ({ id: key, label: FIELD_LABELS[key] }));
 
-  const sendLink = async () => {
-    setSending(true);
+  const begin = async () => {
+    setStarting(true);
     setErrors((prev) => ({ ...prev, form: undefined }));
     try {
-      const saved = await persist();
-      if (!saved) throw new Error("We could not save your details. Please try again.");
-      const { error } = await supabase.auth.signInWithOtp({
-        email: values.email.trim().toLowerCase(),
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: `${window.location.origin}/apply`,
-        },
-      });
-      if (error) throw error;
-      setStep("verify");
-      setResendIn(45);
+      if (signedIn) {
+        if (!(await persist())) throw new Error("save failed");
+      } else {
+        const result = await start({ data: payload });
+        if (result.status === "exists") {
+          setAlreadyApplied(true);
+          return;
+        }
+        // Exchange the one-time token for a session on this browser. No email is sent.
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: result.tokenHash,
+          type: "email",
+        });
+        if (error) throw error;
+      }
+      sessionStorage.removeItem(CONTACT_CACHE_KEY);
+      await navigate({ to: "/apply/identity" });
     } catch (error) {
+      console.error(error);
       setErrors((prev) => ({
         ...prev,
-        form:
-          error instanceof Error
-            ? error.message
-            : "We could not send your email just now. Please try again.",
+        form: "We could not save your details just now. Please try again.",
       }));
     } finally {
-      setSending(false);
+      setStarting(false);
     }
   };
 
@@ -343,7 +352,7 @@ function ContactStage() {
       revealField(problems);
       return;
     }
-    await sendLink();
+    await begin();
   };
 
   const genderError = touched.gender ? errors.gender : undefined;
@@ -363,8 +372,7 @@ function ContactStage() {
 
         <div className="mt-10">
           <Panel>
-            {step === "contact" ? (
-              <>
+            <>
                 <h1 className="font-display text-[40px] leading-[1.05] font-semibold text-charcoal sm:text-[46px]">
                   Welcome. Let&rsquo;s begin privately.
                 </h1>
@@ -408,15 +416,17 @@ function ContactStage() {
                   <FieldShell
                     id="email"
                     label="Email"
+                    helper={signedIn ? "This is the email on your application." : undefined}
                     error={touched.email ? errors.email : undefined}
                   >
                     <input
                       id="email"
                       type="email"
                       inputMode="email"
-                      className={inputClass}
+                      className={`${inputClass} read-only:bg-sand/40 read-only:text-taupe`}
                       value={values.email}
                       autoComplete="email"
+                      readOnly={signedIn}
                       onChange={(e) => set("email", e.target.value)}
                       onBlur={() => blur("email")}
                     />
@@ -531,13 +541,49 @@ function ContactStage() {
 
                 <ErrorSummary items={summary} />
 
+                {alreadyApplied && (
+                  <div
+                    role="alert"
+                    className="mt-8 rounded-[10px] border border-burgundy/40 bg-burgundy/[0.04] p-6"
+                  >
+                    <p className="text-[18px] font-semibold text-charcoal">
+                      You&rsquo;ve already applied with this email.
+                    </p>
+                    <p className="mt-2 text-[16px] leading-[1.6] text-charcoal">
+                      Log in to continue your application. If you haven&rsquo;t set a password
+                      yet, use &ldquo;Set or reset your password&rdquo; and we&rsquo;ll email
+                      you a link to choose one.
+                    </p>
+                    <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center">
+                      <Link
+                        to="/login"
+                        search={{ email: payload.email }}
+                        className={primaryButtonClass}
+                      >
+                        Log in
+                      </Link>
+                      <Link
+                        to="/forgot-password"
+                        search={{ email: payload.email }}
+                        className={quietButtonClass}
+                      >
+                        Set or reset your password
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
                 {errors.form && (
                   <p className="mt-8 text-[15px] font-medium text-wine-red">{errors.form}</p>
                 )}
 
                 <div className="mt-10 flex flex-col gap-5 border-t border-sand-deep/70 pt-8 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-[14px] text-taupe">
-                    <p>Your progress is saved automatically.</p>
+                    <p>
+                      {signedIn
+                        ? "Your progress is saved automatically."
+                        : "Your details are saved when you continue."}
+                    </p>
                     <p className="mt-1 h-[20px] text-charcoal">
                       {saveState === "saving" && <span className="text-taupe">Saving…</span>}
                       {saveState === "saved" && (
@@ -561,49 +607,13 @@ function ContactStage() {
                   <button
                     type="button"
                     className={primaryButtonClass}
-                    disabled={sending}
+                    disabled={starting}
                     onClick={() => void onContinue()}
                   >
-                    {sending ? "Sending your email…" : "Continue"}
+                    {starting ? "Saving…" : "Continue"}
                   </button>
                 </div>
               </>
-            ) : (
-              <>
-                <h1 className="font-display text-[40px] leading-[1.05] font-semibold text-charcoal sm:text-[44px]">
-                  Open the email and continue.
-                </h1>
-                <p className="mt-5 max-w-[46ch] text-[19px] leading-[1.6] text-charcoal">
-                  We sent a confirmation email to{" "}
-                  <span className="font-medium">{values.email.trim().toLowerCase()}</span>. Open it
-                  on this device and follow the link — it brings you straight back here and
-                  continues your application.
-                </p>
-
-                <div className="mt-10 flex flex-col gap-4 border-t border-sand-deep/70 pt-8 sm:flex-row sm:items-center">
-                  <button
-                    type="button"
-                    className={quietButtonClass}
-                    onClick={() => setStep("contact")}
-                  >
-                    Change my details
-                  </button>
-                  <button
-                    type="button"
-                    disabled={resendIn > 0 || sending}
-                    onClick={() => void sendLink()}
-                    className="text-[15px] font-medium text-burgundy underline-offset-4 hover:underline disabled:text-taupe disabled:no-underline sm:ml-2"
-                  >
-                    {resendIn > 0 ? `Send again in ${resendIn}s` : "Send the email again"}
-                  </button>
-                </div>
-
-                <p className="mt-6 text-[14px] text-taupe">
-                  Your contact details are already saved.
-                </p>
-              </>
-
-            )}
           </Panel>
         </div>
       </div>

@@ -1,14 +1,52 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import type { User } from "@supabase/supabase-js";
 
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Staff sign in with email and password. New staff receive a temporary
- * password, choose their own on first sign-in, and can reset it by email.
- * Applicants never need a password: their application email brings them back.
+ * Everyone logs in with email and password at /login.
+ * - Staff receive a temporary password and choose their own on first sign-in.
+ * - Applicants start with no password: the contact step signs them in on that
+ *   browser. To come back elsewhere they set one with "Forgot password".
  */
+
+export type AccountState = "loading" | "signed-out" | "applicant" | "staff";
+
+/** Who is signed in on this browser, kept current as they log in or out. */
+export function useAccount() {
+  const navigate = useNavigate();
+  const [state, setState] = useState<AccountState>("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+    const check = async (signedIn: boolean) => {
+      if (!signedIn) {
+        if (!cancelled) setState("signed-out");
+        return;
+      }
+      const { data: staff } = await supabase.rpc("is_staff");
+      if (!cancelled) setState(staff === true ? "staff" : "applicant");
+    };
+    void supabase.auth.getSession().then(({ data }) => check(Boolean(data.session)));
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT") void check(Boolean(session));
+    });
+    return () => {
+      cancelled = true;
+      data.subscription.unsubscribe();
+    };
+  }, []);
+
+  const signOut = useCallback(async () => {
+    const wasStaff = state === "staff";
+    // Local scope: sign out this browser only, not the person's other devices.
+    await supabase.auth.signOut({ scope: "local" });
+    await navigate({ to: wasStaff ? "/login" : "/", replace: true });
+  }, [navigate, state]);
+
+  return { state, signOut };
+}
 
 export const MIN_PASSWORD_LENGTH = 8;
 

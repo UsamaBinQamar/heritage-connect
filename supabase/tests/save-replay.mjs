@@ -177,19 +177,42 @@ const [{ count }] = (
 ).rows;
 expectEqual("apply again: still one application for the email", count, 1);
 
-// After submission nothing locks the answers yet (see docs/session-notes).
+// After submission the applicant can read their application but not change it.
+// Row-level security skips rows it hides, so a blocked UPDATE changes 0 rows.
 await db.query(`UPDATE public.profiles SET application_status = 'submitted' WHERE id = $1`, [
   profileId,
 ]);
 await asApplicant(uid);
-try {
-  await db.query(`UPDATE public.profile_facts SET smoking = 'regularly' WHERE profile_id = $1`, [
+const changed = async (sql, params) => (await db.query(sql, params)).affectedRows ?? 0;
+expectEqual(
+  "submitted: answers locked",
+  await changed(`UPDATE public.profile_facts SET smoking = 'regularly' WHERE profile_id = $1`, [
     profileId,
-  ]);
-  console.log("NOTE", "submitted applicant can still change answers");
-} catch {
-  console.log("NOTE", "submitted applicant can no longer change answers");
-}
+  ]),
+  0,
+);
+expectEqual(
+  "submitted: contact details locked",
+  await changed(`UPDATE public.profiles SET first_name = 'Changed' WHERE id = $1`, [profileId]),
+  0,
+);
+await expectError(
+  "submitted: no new consent rows",
+  `INSERT INTO public.consents (profile_id, consent_key, policy_version, accepted)
+   VALUES ($1, 'contact_followup', 'v1', true)`,
+  [profileId],
+);
+const readable = await expectOk(
+  "submitted: applicant can still read their answers",
+  `SELECT smoking FROM public.profile_facts WHERE profile_id = $1`,
+  [profileId],
+);
+expectEqual("submitted: answers unchanged", readable[0], { smoking: "never" });
+await expectOk(
+  "submitted: sections still recompute",
+  `SELECT public.recompute_profile_sections($1)`,
+  [profileId],
+);
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) failed.`);
 process.exit(failures === 0 ? 0 : 1);
