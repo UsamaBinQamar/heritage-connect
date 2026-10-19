@@ -151,12 +151,17 @@ function ContactStage() {
   const [signedIn, setSignedIn] = useState(false);
   const [alreadyApplied, setAlreadyApplied] = useState(false);
   const [starting, setStarting] = useState(false);
+  // While a signed-in person is being sent on, show neither the form nor a flash of it.
+  const [checking, setChecking] = useState(true);
   const lastSaved = useRef<string>("");
+  // Only save after the person changes something, not when saved values load in.
+  const edited = useRef(false);
 
   // Signed in on this browser: restore what is saved and send the person to the
   // first section they have not finished. Never a second application.
   useEffect(() => {
     let cancelled = false;
+    let leaving = false;
     void (async () => {
       try {
         const cached = sessionStorage.getItem(CONTACT_CACHE_KEY);
@@ -179,7 +184,7 @@ function ContactStage() {
           }
         }
 
-        const saved = await loadSaved();
+        const [saved, overview] = await Promise.all([loadSaved(), loadOverview()]);
         if (cancelled || !saved) return;
 
         setValues((prev) => ({
@@ -192,10 +197,9 @@ function ContactStage() {
           gender: saved.contact.gender || prev.gender,
         }));
 
-        const overview = await loadOverview();
-        if (cancelled) return;
         // Submitted applications are locked; the consent page shows the receipt.
         if (overview && overview.applicationStatus !== "draft") {
+          leaving = true;
           await navigate({ to: "/apply/consent", replace: true });
           return;
         }
@@ -204,14 +208,18 @@ function ContactStage() {
           ? APPLICATION_SECTIONS.find((s) => s.key === overview.resumeSection)
           : undefined;
         if (!resume) {
+          leaving = true;
           await navigate({ to: "/apply/consent", replace: true });
           return;
         }
         if (resume.key === "contact") return;
         sessionStorage.removeItem(CONTACT_CACHE_KEY);
+        leaving = true;
         await navigate({ to: resume.to, replace: true });
       } catch (error) {
         console.error(error);
+      } finally {
+        if (!cancelled && !leaving) setChecking(false);
       }
     })();
     return () => {
@@ -227,7 +235,6 @@ function ContactStage() {
       /* storage unavailable */
     }
   }, [values]);
-
 
   const callingCodes = useMemo(() => {
     const supported = new Set(getCountries() as string[]);
@@ -279,7 +286,7 @@ function ContactStage() {
 
   // Field-level autosave: quiet, debounced, never on every keystroke.
   useEffect(() => {
-    if (!signedIn || !draftReady) return;
+    if (!signedIn || !draftReady || !edited.current) return;
     const timer = setTimeout(() => {
       void persist();
     }, 1000);
@@ -287,6 +294,7 @@ function ContactStage() {
   }, [draftReady, persist, signedIn]);
 
   const set = (key: keyof Values, value: string) => {
+    edited.current = true;
     setValues((prev) => ({ ...prev, [key]: value }));
     setErrors((prev) => ({ ...prev, [key]: undefined, form: undefined }));
     if (key === "email") setAlreadyApplied(false);
@@ -357,7 +365,6 @@ function ContactStage() {
 
   const genderError = touched.gender ? errors.gender : undefined;
 
-
   return (
     <main className="min-h-screen bg-ivory">
       <ApplyMasthead />
@@ -372,7 +379,10 @@ function ContactStage() {
 
         <div className="mt-10">
           <Panel>
-            <>
+            {checking ? (
+              <p className="text-[17px] text-taupe">One moment.</p>
+            ) : (
+              <>
                 <h1 className="font-display text-[40px] leading-[1.05] font-semibold text-charcoal sm:text-[46px]">
                   Welcome. Let&rsquo;s begin privately.
                 </h1>
@@ -440,18 +450,18 @@ function ContactStage() {
                   >
                     <div className="flex gap-3">
                       <div className="w-[140px] shrink-0">
-                      <select
-                        aria-label="Country calling code"
-                        className={selectClass}
-                        value={values.phone_country}
-                        onChange={(e) => set("phone_country", e.target.value)}
-                      >
-                        {callingCodes.map((c) => (
-                          <option key={c.code} value={c.code}>
-                            {c.code} {c.calling}
-                          </option>
-                        ))}
-                      </select>
+                        <select
+                          aria-label="Country calling code"
+                          className={selectClass}
+                          value={values.phone_country}
+                          onChange={(e) => set("phone_country", e.target.value)}
+                        >
+                          {callingCodes.map((c) => (
+                            <option key={c.code} value={c.code}>
+                              {c.code} {c.calling}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <input
                         id="phone"
@@ -491,7 +501,9 @@ function ContactStage() {
                   <fieldset
                     data-field="gender"
                     aria-describedby={genderError ? "gender-message" : undefined}
-                    className={genderError ? "border-l-[3px] border-wine-red pl-4 sm:pl-5" : undefined}
+                    className={
+                      genderError ? "border-l-[3px] border-wine-red pl-4 sm:pl-5" : undefined
+                    }
                   >
                     <legend className="text-[16px] font-medium text-charcoal">Gender</legend>
                     <div className="mt-3 grid gap-4 sm:grid-cols-2">
@@ -524,7 +536,9 @@ function ContactStage() {
                                 active ? "border-burgundy" : "border-taupe/70"
                               }`}
                             >
-                              {active && <span className="h-[10px] w-[10px] rounded-full bg-burgundy" />}
+                              {active && (
+                                <span className="h-[10px] w-[10px] rounded-full bg-burgundy" />
+                              )}
                             </span>
                             {option.label}
                           </label>
@@ -550,9 +564,9 @@ function ContactStage() {
                       You&rsquo;ve already applied with this email.
                     </p>
                     <p className="mt-2 text-[16px] leading-[1.6] text-charcoal">
-                      Log in to continue your application. If you haven&rsquo;t set a password
-                      yet, use &ldquo;Set or reset your password&rdquo; and we&rsquo;ll email
-                      you a link to choose one.
+                      Log in to continue your application. If you haven&rsquo;t set a password yet,
+                      use &ldquo;Set or reset your password&rdquo; and we&rsquo;ll email you a link
+                      to choose one.
                     </p>
                     <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center">
                       <Link
@@ -614,6 +628,7 @@ function ContactStage() {
                   </button>
                 </div>
               </>
+            )}
           </Panel>
         </div>
       </div>

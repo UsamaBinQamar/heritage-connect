@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import type { User } from "@supabase/supabase-js";
 
 import { supabase } from "@/integrations/supabase/client";
+import { APPLICATION_SECTIONS } from "@/lib/application.functions";
 
 /**
  * Everyone logs in with email and password at /login.
@@ -55,13 +56,35 @@ export function hasChosenPassword(user: User | null | undefined): boolean {
   return user?.user_metadata?.["password_set"] === true;
 }
 
-/** Staff go to the dashboard (or to choose a password first); anyone else to their application. */
-export async function destinationAfterSignIn(
-  user: User,
-): Promise<"/matchmaker" | "/set-password" | "/apply"> {
-  const { data: staff, error } = await supabase.rpc("is_staff");
-  if (error || staff !== true) return "/apply";
-  return hasChosenPassword(user) ? "/matchmaker" : "/set-password";
+export type AccountHome =
+  "/matchmaker" | "/set-password" | (typeof APPLICATION_SECTIONS)[number]["to"];
+
+/**
+ * Where to go straight after logging in, worked out here with direct queries
+ * so the person lands on the right page in one step instead of passing
+ * through /apply. Staff go to the dashboard (or to choose a password first);
+ * applicants to their first unfinished section, or the receipt once submitted.
+ */
+export async function destinationAfterSignIn(user: User): Promise<AccountHome> {
+  const [staff, profile] = await Promise.all([
+    supabase.rpc("is_staff"),
+    supabase
+      .from("profiles")
+      .select("id, application_status")
+      .eq("auth_user_id", user.id)
+      .is("deleted_at", null)
+      .maybeSingle(),
+  ]);
+  if (staff.data === true) return hasChosenPassword(user) ? "/matchmaker" : "/set-password";
+  if (!profile.data) return "/apply";
+  if (profile.data.application_status !== "draft") return "/apply/consent";
+
+  const { data: rows } = await supabase
+    .from("profile_sections")
+    .select("section_key, is_complete")
+    .eq("profile_id", profile.data.id);
+  const done = new Set((rows ?? []).filter((r) => r.is_complete).map((r) => r.section_key));
+  return APPLICATION_SECTIONS.find((s) => !done.has(s.key))?.to ?? "/apply/consent";
 }
 
 export type PasswordProblem = { field: "password" | "confirm"; message: string };

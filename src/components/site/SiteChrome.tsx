@@ -1,7 +1,8 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 
-import { useAccount } from "@/lib/account";
+import { supabase } from "@/integrations/supabase/client";
+import { destinationAfterSignIn, useAccount } from "@/lib/account";
 import headerLockup from "@/assets/motherlandmatch-lockup.png";
 import monogram from "@/assets/motherlandmatch-monogram.png";
 
@@ -29,21 +30,12 @@ function HeaderLogo() {
   return (
     <Link to="/" aria-label="MotherlandMatch home" className="flex shrink-0 items-center">
       {/* Desktop / tablet: full horizontal lockup image */}
-      <img
-        src={headerLockup}
-        alt="MotherlandMatch"
-        className="hidden h-auto w-[260px] md:block"
-      />
+      <img src={headerLockup} alt="MotherlandMatch" className="hidden h-auto w-[260px] md:block" />
       {/* Mobile: small line-M monogram + solid-color wordmark on one row.
           Never icon-only — the name always shows. Type shrinks at the
           narrowest widths so the M, name, and menu never collide. */}
       <span className="flex shrink-0 items-center gap-2 md:hidden">
-        <img
-          src={monogram}
-          alt=""
-          aria-hidden
-          className="h-[25px] w-auto min-[380px]:h-[27px]"
-        />
+        <img src={monogram} alt="" aria-hidden className="h-[25px] w-auto min-[380px]:h-[27px]" />
         <span className="font-display text-[15px] font-semibold leading-none tracking-[0.06em] uppercase min-[380px]:text-[16px] min-[440px]:text-[17px]">
           <span className="text-charcoal">Motherland</span>
           <span className="text-burgundy">Match</span>
@@ -53,13 +45,7 @@ function HeaderLogo() {
   );
 }
 
-export function ApplyLink({
-  className,
-  children,
-}: {
-  className: string;
-  children: ReactNode;
-}) {
+export function ApplyLink({ className, children }: { className: string; children: ReactNode }) {
   return (
     <Link to="/apply" search={{}} className={className}>
       {children}
@@ -79,6 +65,7 @@ export const ctaQuietDark =
 /** Log in when signed out; a way back in for applicants and staff when signed in. */
 function AccountLink({ className, onClick }: { className: string; onClick?: () => void }) {
   const { state } = useAccount();
+  const navigate = useNavigate();
   if (state === "loading") return null;
   if (state === "staff") {
     return (
@@ -89,7 +76,21 @@ function AccountLink({ className, onClick }: { className: string; onClick?: () =
   }
   if (state === "applicant") {
     return (
-      <Link to="/apply" search={{}} onClick={onClick} className={className}>
+      <Link
+        to="/apply"
+        search={{}}
+        className={className}
+        onClick={(event) => {
+          // Go straight to the right page (next section, or the receipt) instead
+          // of opening the contact step and redirecting from there.
+          event.preventDefault();
+          onClick?.();
+          void supabase.auth.getSession().then(async ({ data }) => {
+            if (!data.session) return navigate({ to: "/login" });
+            return navigate({ to: await destinationAfterSignIn(data.session.user) });
+          });
+        }}
+      >
         My application
       </Link>
     );

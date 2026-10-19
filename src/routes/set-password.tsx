@@ -18,6 +18,7 @@ import {
   destinationAfterSignIn,
   hasChosenPassword,
   passwordProblem,
+  type AccountHome,
   type PasswordProblem,
 } from "@/lib/account";
 
@@ -48,7 +49,7 @@ function SetPasswordPage() {
     linkFailed ? "no-session" : "checking",
   );
   const [user, setUser] = useState<User | null>(null);
-  const [home, setHome] = useState<"/matchmaker" | "/set-password" | "/apply">("/apply");
+  const [home, setHome] = useState<AccountHome>("/apply");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [problem, setProblem] = useState<PasswordProblem | undefined>(undefined);

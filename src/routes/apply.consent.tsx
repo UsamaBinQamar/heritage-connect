@@ -131,7 +131,9 @@ function ConsentStage() {
   // Applicants start without a password; offer one so they can check back later.
   useEffect(() => {
     if (!submitted) return;
-    void supabase.auth.getUser().then(({ data }) => setNeedsPassword(!hasChosenPassword(data.user)));
+    void supabase.auth
+      .getUser()
+      .then(({ data }) => setNeedsPassword(!hasChosenPassword(data.user)));
   }, [submitted]);
 
   useEffect(() => {
@@ -139,9 +141,16 @@ function ConsentStage() {
     void (async () => {
       try {
         await refresh();
-      } catch (err) {
-        console.error(err);
-        if (!cancelled) setError("We could not load your application just now.");
+      } catch (first) {
+        // A session restored a moment ago can miss the first call; try once more.
+        console.error(first);
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        try {
+          if (!cancelled) await refresh();
+        } catch (err) {
+          console.error(err);
+          if (!cancelled) setError("We could not load your application just now.");
+        }
       } finally {
         if (!cancelled) setLoaded(true);
       }
@@ -213,6 +222,20 @@ function ConsentStage() {
       ]
     : [];
 
+  // Until we know the status, show neither the form nor the receipt.
+  if (!loaded) {
+    return (
+      <main className="min-h-screen bg-ivory">
+        <ApplyMasthead />
+        <div className="mx-auto max-w-[760px] px-6 pt-16 pb-24 sm:pt-24">
+          <Panel>
+            <p className="text-[17px] text-taupe">One moment.</p>
+          </Panel>
+        </div>
+      </main>
+    );
+  }
+
   if (submitted) {
     return (
       <main className="min-h-screen bg-ivory">
@@ -223,13 +246,12 @@ function ConsentStage() {
               Thank you for taking the time to apply.
             </h1>
             <p className="mt-6 max-w-[46ch] text-[19px] leading-[1.6] text-charcoal">
-              Your application has been received. A MotherlandMatch matchmaker will review it carefully and we&rsquo;ll be in touch.
+              Your application has been received. A MotherlandMatch matchmaker will review it
+              carefully and we&rsquo;ll be in touch.
             </p>
             {needsPassword && (
               <div className="mt-10 rounded-[10px] border border-sand-deep bg-white p-6">
-                <p className="text-[17px] font-semibold text-charcoal">
-                  Want to check back later?
-                </p>
+                <p className="text-[17px] font-semibold text-charcoal">Want to check back later?</p>
                 <p className="mt-2 text-[16px] leading-[1.6] text-charcoal">
                   Set a password and you can log in from any device. This is optional.
                 </p>
