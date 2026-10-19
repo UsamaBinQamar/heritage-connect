@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { quietButtonClass, selectClass } from "@/components/apply/ApplyChrome";
 import { StaffMasthead } from "@/components/staff/StaffMasthead";
+import { useLiveRefresh } from "@/lib/realtime";
 import { listApplications, type ApplicationRow } from "@/lib/matchmaker.functions";
 
 export const Route = createFileRoute("/matchmaker/")({
@@ -86,6 +87,13 @@ function ApplicationsPage() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // New submissions, resubmissions and decisions by other staff appear live.
+  useLiveRefresh(state === "ready" ? [{ table: "profiles" }] : null, () => {
+    void load()
+      .then(setApplications)
+      .catch((err) => console.error(err));
+  });
 
   const rows = useMemo(
     () =>

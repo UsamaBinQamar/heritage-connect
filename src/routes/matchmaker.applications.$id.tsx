@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { quietButtonClass } from "@/components/apply/ApplyChrome";
 import { StaffMasthead } from "@/components/staff/StaffMasthead";
+import { useLiveRefresh } from "@/lib/realtime";
 import {
   ApplicationSummary,
   Facts,
@@ -70,6 +71,20 @@ function ApplicationFilePage() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // The applicant's edits while pending, and other staff's decisions, appear live.
+  useLiveRefresh(
+    state === "ready"
+      ? [
+          { table: "profiles", filter: `id=eq.${id}` },
+          { table: "profile_facts", filter: `profile_id=eq.${id}` },
+          { table: "profile_preferences", filter: `profile_id=eq.${id}` },
+          { table: "applicant_matchmaking_notes", filter: `profile_id=eq.${id}` },
+          { table: "photos", filter: `profile_id=eq.${id}` },
+        ]
+      : null,
+    () => void refresh(),
+  );
 
   if (state === "loading") {
     return (

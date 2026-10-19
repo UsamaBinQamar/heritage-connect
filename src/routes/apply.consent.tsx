@@ -19,6 +19,7 @@ import {
   type ConsentDesk,
 } from "@/lib/consent.functions";
 import { useApplySession } from "@/lib/use-apply-session";
+import { useLiveRefresh } from "@/lib/realtime";
 import { getMyApplicationFile } from "@/lib/application.functions";
 import type { ApplicationFile } from "@/lib/matchmaker.functions";
 import { ApplicationSummary } from "@/components/application/ApplicationSummary";
@@ -175,6 +176,19 @@ function ConsentStage() {
       setReopening(false);
     }
   };
+
+  // A staff decision (status and reason) appears without a refresh.
+  useLiveRefresh(
+    desk?.profileId ? [{ table: "profiles", filter: `id=eq.${desk.profileId}` }] : null,
+    () => {
+      void refresh().catch((err) => console.error(err));
+      if (submitted) {
+        void loadFile()
+          .then(setFile)
+          .catch((err) => console.error(err));
+      }
+    },
+  );
 
   // Once submitted, show what was sent, read-only.
   useEffect(() => {
